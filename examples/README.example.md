@@ -65,16 +65,24 @@ Exit codes: `0` success, `2` usage, `3` scene, `4` GPU, `5` command (with `--str
 ## Generating a real scene from the core simulator
 
 The full naval dataset lives in the `SECMotionModel` repository. Regenerate the
-GUI scene after a simulation:
+GUI scene after a simulation, starting from an existing log (no simulator rerun
+needed):
 
 ```bash
 cd SECMotionModel
+python tools/parse_naval_log.py \
+  --log result/naval_full_run_2026-11-10/naval_full_in_network.log \
+  --out /tmp/trace.jsonl
+
 python tools/export_gui_scene.py \
   --config data/naval_configurations_AP_optimal.json \
-  --trace result/naval/IN_NETWORK/optimal/trace.jsonl \
+  --trace /tmp/trace.jsonl \
   --out ../SECMotionModel-GUI/examples/generated/naval \
   --start 0 --end 150
 ```
+
+When the instrumented `--trace-jsonl` mode lands in the simulator, pass that
+file as `--trace` instead: it also records exact hop durations and failures.
 
 Generated data is ignored by git (`examples/generated/`); it can be large
 (457 satellites per frame), so keep it local.
