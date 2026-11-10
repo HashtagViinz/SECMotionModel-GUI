@@ -223,7 +223,7 @@ int Application::run() {
 nlohmann::json Application::commandOpen(const nlohmann::json& payload) {
 	const std::string path = payload.value("scene", args_.scenePath);
 	if (path.empty()) {
-		throw CommandError("MISSING_FIELD", "'open' requires a 'scene' path");
+		throw CommandError("MISSING_FIELD", "'open' requires a 'scene' path or the --scene option");
 	}
 	if (payload.contains("tasks") && payload["tasks"].is_string()) {
 		tasksOverride_ = payload["tasks"].get<std::string>();

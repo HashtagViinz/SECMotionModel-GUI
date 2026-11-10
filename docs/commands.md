@@ -78,7 +78,7 @@ The renderer body is replaced in Phase 3; the protocol stays stable.
 ## Example script
 
 ```jsonl
-{"protocol":1,"cmd":"open","scene":"examples/minimal/scene.json","tasks":"examples/minimal/tasks.jsonl"}
+{"cmd":"open"}
 {"cmd":"camera","mode":"vessel","target":"V-ATLANTIC","distance_km":2200}
 {"cmd":"layer","name":"isl","visible":true}
 {"cmd":"seek","frame":2}
@@ -86,6 +86,9 @@ The renderer body is replaced in Phase 3; the protocol stays stable.
 {"cmd":"state"}
 {"cmd":"quit"}
 ```
+
+When `open` has no `scene` field it uses the `--scene` path passed on the
+command line, so the same script works on every platform and directory.
 
 ## Reproducibility
 
