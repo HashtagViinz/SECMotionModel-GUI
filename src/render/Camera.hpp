@@ -31,6 +31,8 @@ struct CameraFrame {
 	Mat4 projection;
 	Vec3 eye;
 	Vec3 focus;
+	Vec3 right{1.0, 0.0, 0.0};
+	Vec3 up{0.0, 1.0, 0.0};
 };
 
 class Camera {

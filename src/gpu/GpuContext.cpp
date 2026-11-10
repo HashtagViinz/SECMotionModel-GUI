@@ -1,5 +1,6 @@
 #include "gpu/GpuContext.hpp"
 
+#include "gpu/WgpuString.hpp"
 #include "util/Log.hpp"
 
 #include <chrono>
@@ -130,7 +131,7 @@ GpuContext GpuContext::create(const std::string& backendPreference) {
 			if (status == WGPURequestAdapterStatus_Success && adapter != nullptr) {
 				state->adapter = wgpu::Adapter(adapter);
 			} else {
-				state->error = std::string(std::string_view(message));
+				state->error = toStdString(message);
 			}
 			state->done = true;
 		};
@@ -159,9 +160,9 @@ GpuContext GpuContext::create(const std::string& backendPreference) {
 
 	wgpu::AdapterInfo info{};
 	if (context.adapter.getInfo(&info) == wgpu::Status::Success) {
-		context.adapterName = std::string(std::string_view(info.device));
+		context.adapterName = toStdString(info.device);
 		if (context.adapterName.empty()) {
-			context.adapterName = std::string(std::string_view(info.description));
+			context.adapterName = toStdString(info.description);
 		}
 		context.backendName = backendTypeName(info.backendType);
 	} else {
@@ -183,14 +184,14 @@ GpuContext GpuContext::create(const std::string& backendPreference) {
 	deviceDescriptor.requiredLimits = nullptr;
 	deviceDescriptor.defaultQueue.label = wgpu::StringView("secmotion-gui queue");
 	deviceDescriptor.uncapturedErrorCallbackInfo.callback = [](
-		WGPUDevice,
+		WGPUDevice const*,
 		WGPUErrorType type,
 		WGPUStringView message,
 		void*,
 		void*) {
 		logError(std::string("webgpu uncaptured error (type ")
 			+ std::to_string(static_cast<int>(type)) + "): "
-			+ std::string(std::string_view(message)));
+			+ toStdString(message));
 	};
 	deviceDescriptor.uncapturedErrorCallbackInfo.userdata1 = nullptr;
 	deviceDescriptor.uncapturedErrorCallbackInfo.userdata2 = nullptr;
@@ -209,7 +210,7 @@ GpuContext GpuContext::create(const std::string& backendPreference) {
 		if (status == WGPURequestDeviceStatus_Success && device != nullptr) {
 			state->device = wgpu::Device(device);
 		} else {
-			state->error = std::string(std::string_view(message));
+			state->error = toStdString(message);
 		}
 		state->done = true;
 	};

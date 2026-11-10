@@ -1,5 +1,6 @@
 #include "screenshot/Screenshot.hpp"
 
+#include "gpu/WgpuString.hpp"
 #include "util/Log.hpp"
 #include "util/Png.hpp"
 #include "util/Sha256.hpp"
@@ -46,6 +47,20 @@ ScreenshotResult ScreenshotService::capture(GpuContext& gpu, Renderer& renderer,
 	}
 	const wgpu::TextureView view = texture.createView();
 
+	wgpu::TextureDescriptor depthDescriptor{};
+	depthDescriptor.label = wgpu::StringView("screenshot depth");
+	depthDescriptor.size = wgpu::Extent3D{width, height, 1};
+	depthDescriptor.mipLevelCount = 1;
+	depthDescriptor.sampleCount = 1;
+	depthDescriptor.dimension = wgpu::TextureDimension::_2D;
+	depthDescriptor.format = wgpu::TextureFormat::Depth24Plus;
+	depthDescriptor.usage = static_cast<WGPUTextureUsage>(WGPUTextureUsage_RenderAttachment);
+	const wgpu::Texture depthTexture = gpu.device.createTexture(depthDescriptor);
+	if (!depthTexture) {
+		throw std::runtime_error("failed to create the screenshot depth texture");
+	}
+	const wgpu::TextureView depthView = depthTexture.createView();
+
 	const std::size_t bytesPerRow = alignTo(static_cast<std::size_t>(width) * 4u, 256u);
 	const std::size_t bufferSize = bytesPerRow * static_cast<std::size_t>(height);
 
@@ -62,7 +77,7 @@ ScreenshotResult ScreenshotService::capture(GpuContext& gpu, Renderer& renderer,
 
 	const wgpu::CommandEncoder encoder = gpu.device.createCommandEncoder();
 
-	renderer.render(encoder, view, width, height);
+	renderer.render(encoder, view, depthView, width, height);
 
 	wgpu::TexelCopyTextureInfo source{};
 	source.texture = texture;
@@ -99,7 +114,7 @@ ScreenshotResult ScreenshotService::capture(GpuContext& gpu, Renderer& renderer,
 		void*) {
 		auto* state = static_cast<MapState*>(userdata1);
 		state->success = (status == WGPUMapAsyncStatus_Success);
-		state->error = std::string(std::string_view(message));
+		state->error = toStdString(message);
 		state->done = true;
 	};
 	readback.mapAsync(wgpu::MapMode::Read, 0, bufferSize, mapCallback);
@@ -169,6 +184,8 @@ ScreenshotResult ScreenshotService::capture(GpuContext& gpu, Renderer& renderer,
 
 	commands.release();
 	view.release();
+	depthView.release();
+	depthTexture.release();
 	readback.release();
 	texture.release();
 	return result;

@@ -2,6 +2,7 @@
 
 #include "cli/Args.hpp"
 #include "gpu/GpuContext.hpp"
+#include "render/Camera.hpp"
 #include "render/Renderer.hpp"
 #include "scene/SceneLoader.hpp"
 
@@ -11,6 +12,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace secgui {
 
@@ -43,6 +45,9 @@ private:
 	void loadScene(const std::filesystem::path& path);
 	void applyInitialState();
 	void requireScene() const;
+	void reloadFrame();
+	void buildEarthGrid();
+	RenderFrame buildRenderFrame(unsigned width, unsigned height) const;
 	nlohmann::json sceneInfo() const;
 	void setFrame(int frame);
 	void printReadyLine() const;
@@ -51,6 +56,12 @@ private:
 	GpuContext gpu_;
 	Renderer renderer_;
 	std::optional<SceneMetadata> scene_;
+	std::optional<FrameData> frameData_;
+	std::vector<TaskEvent> tasks_;
+	CameraState camera_;
+	double earthRadiusKm_ = 6371.0;
+	double phiMaxDeg_ = 40.0;
+	double phiBufferDeg_ = 15.0;
 	int currentFrame_ = 0;
 	bool playing_ = false;
 	bool quit_ = false;

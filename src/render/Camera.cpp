@@ -131,6 +131,16 @@ CameraFrame Camera::compute(const CameraState& state, const FrameData& frame,
 
 	const Vec3 up{0.0, 0.0, 1.0};
 	result.view = Mat4::lookAt(result.eye, result.focus, up);
+	result.right = Vec3{
+		static_cast<double>(result.view.m[0]),
+		static_cast<double>(result.view.m[4]),
+		static_cast<double>(result.view.m[8]),
+	};
+	result.up = Vec3{
+		static_cast<double>(result.view.m[1]),
+		static_cast<double>(result.view.m[5]),
+		static_cast<double>(result.view.m[9]),
+	};
 	const float fov = static_cast<float>(state.fieldOfViewDeg * 3.14159265358979323846 / 180.0);
 	const float near = static_cast<float>(std::max(1.0, effectiveDistance / 10000.0));
 	const float far = static_cast<float>(earthRadiusKm * 100.0);

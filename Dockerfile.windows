@@ -65,13 +65,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       cabextract \
       ca-certificates \
       curl \
+      gnupg \
       libvulkan1 \
       mesa-vulkan-drivers \
       vulkan-tools \
-      wine \
-      wine64 \
       xauth \
       xvfb \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -pm755 /etc/apt/keyrings \
+    && curl -fsSL https://dl.winehq.org/wine-builds/winehq.key \
+         -o /etc/apt/keyrings/winehq-archive.key \
+    && curl -fsSL https://dl.winehq.org/wine-builds/debian/dists/bookworm/winehq-bookworm.sources \
+         -o /etc/apt/sources.list.d/winehq-bookworm.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends winehq-stable-amd64 \
     && rm -rf /var/lib/apt/lists/* \
     && curl -fsSL -o /usr/local/bin/winetricks \
          https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks \

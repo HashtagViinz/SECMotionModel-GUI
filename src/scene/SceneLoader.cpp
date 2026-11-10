@@ -101,6 +101,10 @@ SceneMetadata SceneLoader::load(const std::filesystem::path& path) {
 		meta.observerLon = numberField(observer, "lon", 0.0);
 	}
 
+	meta.earthRadiusKm = numberField(doc, "earth_radius_km", 6371.0);
+	meta.phiMaxDeg = numberField(doc, "phi_max_deg", 40.0);
+	meta.phiBufferDeg = numberField(doc, "phi_buffer_deg", 15.0);
+
 	if (doc.contains("frames")) {
 		const auto& frames = doc.at("frames");
 		if (!frames.is_object()) {
@@ -168,6 +172,17 @@ std::optional<double> optionalNumber(const nlohmann::json& object, const char* k
 	return value;
 }
 
+std::string stringOr(const nlohmann::json& object, const char* key, const std::string& fallback = {}) {
+	if (!object.contains(key)) {
+		return fallback;
+	}
+	const auto& value = object.at(key);
+	if (!value.is_string()) {
+		return fallback;
+	}
+	return value.get<std::string>();
+}
+
 EntityFrame parseEntity(const nlohmann::json& document, const std::string& key, const std::string& fallback) {
 	EntityFrame entity;
 	entity.name = fallback;
@@ -178,7 +193,7 @@ EntityFrame parseEntity(const nlohmann::json& document, const std::string& key, 
 	if (!object.is_object()) {
 		throw std::runtime_error("frame field '" + key + "' must be an object");
 	}
-	entity.name = object.value("name", fallback);
+	entity.name = stringOr(object, "name", fallback);
 	entity.lat = object.value("lat", 0.0);
 	entity.lon = object.value("lon", 0.0);
 	if (object.contains("ecef_km")) {
@@ -220,7 +235,7 @@ FrameData SceneLoader::loadFrame(const SceneMetadata& scene, int frameIndex) {
 	FrameData frame;
 	frame.index = document.value("index", frameIndex);
 	frame.t = document.value("t", scene.frameTime(frameIndex));
-	frame.time = document.value("time", "");
+	frame.time = stringOr(document, "time", "");
 	frame.vessel = parseEntity(document, "vessel", scene.terminalName);
 	frame.observer = parseEntity(document, "observer", scene.observerName);
 
@@ -234,7 +249,7 @@ FrameData SceneLoader::loadFrame(const SceneMetadata& scene, int frameIndex) {
 			throw std::runtime_error("frame satellite entries must be objects: " + path.string());
 		}
 		SatelliteFrame satellite;
-		satellite.id = item.value("id", "");
+		satellite.id = stringOr(item, "id", "");
 		if (satellite.id.empty()) {
 			throw std::runtime_error("frame satellite is missing an 'id': " + path.string());
 		}
@@ -243,7 +258,7 @@ FrameData SceneLoader::loadFrame(const SceneMetadata& scene, int frameIndex) {
 		}
 		satellite.ecefKm = parseVector3(item.at("ecef_km"), "satellites[" + satellite.id + "].ecef_km");
 		satellite.isAp = item.value("is_ap", false);
-		satellite.terminalRef = item.value("terminal_ref", "");
+		satellite.terminalRef = stringOr(item, "terminal_ref", "");
 		satellite.elevDeg = optionalNumber(item, "elev_deg");
 		satellite.rangeKm = optionalNumber(item, "range_km");
 		satellite.lifeRemainingS = optionalNumber(item, "life_remaining_s");
@@ -253,7 +268,7 @@ FrameData SceneLoader::loadFrame(const SceneMetadata& scene, int frameIndex) {
 					continue;
 				}
 				NeighborRef reference;
-				reference.id = neighbor.value("id", "");
+				reference.id = stringOr(neighbor, "id", "");
 				if (reference.id.empty()) {
 					continue;
 				}
@@ -280,7 +295,9 @@ std::vector<TaskEvent> SceneLoader::loadTasks(const SceneMetadata& scene, const 
 	}
 	std::filesystem::path path = tasksPath;
 	if (!path.is_absolute()) {
-		path = scene.rootDir / path;
+		// A manifest path is relative to the scene; a CLI/override path is
+		// relative to the current working directory.
+		path = overridePath.empty() ? (scene.rootDir / path) : path;
 	}
 	if (!std::filesystem::exists(path)) {
 		logWarn("task trace not found: " + path.string());
@@ -310,7 +327,9 @@ std::vector<TaskEvent> SceneLoader::loadTasks(const SceneMetadata& scene, const 
 			throw std::runtime_error("invalid task JSON in " + path.string() + ":"
 			                         + std::to_string(lineNumber) + ": " + error.what());
 		}
-		const std::string event = document.value("event", document.value("type", ""));
+		const std::string event = !stringOr(document, "event", "").empty()
+			? stringOr(document, "event", "")
+			: stringOr(document, "type", "");
 		if (allowed.find(event) == allowed.end()) {
 			continue;
 		}
@@ -318,12 +337,12 @@ std::vector<TaskEvent> SceneLoader::loadTasks(const SceneMetadata& scene, const 
 		task.t = document.value("t", 0.0);
 		task.event = event;
 		task.task = document.value("task", 0);
-		task.node = document.value("node", "");
-		task.from = document.value("from", "");
-		task.to = document.value("to", "");
-		task.type = document.value("type", "");
-		task.algo = document.value("algo", "");
-		task.reason = document.value("reason", "");
+		task.node = stringOr(document, "node", "");
+		task.from = stringOr(document, "from", "");
+		task.to = stringOr(document, "to", "");
+		task.type = stringOr(document, "type", "");
+		task.algo = stringOr(document, "algo", "");
+		task.reason = stringOr(document, "reason", "");
 		task.sizeMb = document.value("size_mb", 0.0);
 		task.durationS = document.value("duration_s", 0.0);
 		task.rttS = document.value("rtt_s", 0.0);

@@ -59,15 +59,15 @@ endif()
 # ---------------------------------------------------------------------------
 FetchContent_Declare(
 	nlohmann_json
-	GIT_REPOSITORY https://github.com/nlohmann/json.git
-	GIT_TAG        v3.11.3
+	URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+	DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
 FetchContent_Declare(
 	stb
-	GIT_REPOSITORY https://github.com/nothings/stb.git
-	GIT_TAG        4e9b368bfc071e97206ea5c6adba68dd0cbf8897
+	URL https://github.com/nothings/stb/archive/4e9b368bfc071e97206ea5c6adba68dd0cbf8897.tar.gz
+	DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(stb)
 if(NOT TARGET stb)

@@ -19,6 +19,9 @@ struct SceneMetadata {
 	std::string observerName;
 	double observerLat = 0.0;
 	double observerLon = 0.0;
+	double earthRadiusKm = 6371.0;
+	double phiMaxDeg = 40.0;
+	double phiBufferDeg = 15.0;
 	int frameCount = 0;
 	std::string framesPattern;
 	std::string tasksPath;
