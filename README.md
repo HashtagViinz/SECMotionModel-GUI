@@ -73,6 +73,28 @@ secmotion-gui --headless --scene examples/minimal/scene.json \
   --screenshot out/frame.png --time 1.2 --width 1280 --height 720
 ```
 
+### Launcher
+
+`scripts/run_gui.sh` wraps the AppImage (or a local build) with the default
+scene arguments, so the GUI can be started with a single command:
+
+```bash
+# install once
+ln -sf "$PWD/scripts/run_gui.sh" ~/.local/bin/secgui
+
+secgui                                  # minimal example scene
+secgui --naval                          # exported 760-satellite naval scene
+secgui --naval --time 10 --camera vessel
+secgui path/scene.json path/tasks.jsonl # explicit scene and tasks
+secgui --help                           # full usage
+```
+
+The launcher prefers `SECGUI_BIN`, then the newest AppImage in `dist/`, then
+`build-gui/secmotion-gui`. It falls back to `APPIMAGE_EXTRACT_AND_RUN=1` when
+FUSE is unavailable. The naval scene is read from `SECGUI_NAVAL_SCENE`,
+`examples/generated/naval/`, or `/tmp/opencode/naval-scene`; if none exists the
+launcher prints the two core commands needed to regenerate it.
+
 Shortcuts: `Space` play/pause, `←`/`→` step, `1`–`5` camera mode,
 `G/I/D/O/K` layers, `L` layers panel, `T` telemetry, `Ctrl+K` command palette,
 `F12` screenshot, `R` reset, `Ctrl+Q` quit. Drag to orbit, wheel to zoom,
