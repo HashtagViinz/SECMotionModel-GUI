@@ -20,7 +20,7 @@ Change one, copy it to the other.
 
 ```bash
 CORE_REPO="${CORE_REPO:-casalicchio/SECMotionModel}"
-GUI_REPO="${GUI_REPO:-casalicchio/SECMotionModel-GUI}"
+GUI_REPO="${GUI_REPO:-HashtagViinz/SECMotionModel-GUI}"
 ```
 
 Requirements:
