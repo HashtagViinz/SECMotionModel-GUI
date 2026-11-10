@@ -22,10 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Build and Wine smoke test
-        run: docker build -f Dockerfile.windows --target test -t secgui-windows-test .
-
-      - name: Export static .exe
+      - name: Build static .exe
         run: |
           mkdir -p dist
           docker build -f Dockerfile.windows --target export --output type=local,dest=dist .
@@ -34,41 +31,21 @@ jobs:
           file dist/SECMotionModel-GUI-windows-x86_64.exe
           ls -lh dist
 
+      # Wine 11 needs unconfined seccomp on the Docker 29 runner: the default
+      # profile blocks a socket call and wineserver aborts with
+      # "wine: socket : Function not implemented".
+      - name: Wine smoke test (headless + windowed)
+        run: |
+          docker build -f Dockerfile.windows --target wine-env -t secgui-wine-env .
+          docker run --rm --security-opt seccomp=unconfined \
+            -v "$PWD/dist/SECMotionModel-GUI-windows-x86_64.exe:/app/secmotion-gui.exe:ro" \
+            -v "$PWD/examples:/app/examples:ro" \
+            -v "$PWD/scripts/wine_smoke_test.sh:/usr/local/bin/wine_smoke_test.sh:ro" \
+            secgui-wine-env bash /usr/local/bin/wine_smoke_test.sh /app/secmotion-gui.exe
+
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: secmotion-gui-windows-x86_64
-          path: dist/
-          if-no-files-found: error
-
-  macos:
-    name: macOS arm64 (.dmg)
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Configure and build
-        run: |
-          cmake --preset macos-release
-          cmake --build --preset macos-release -j "$(sysctl -n hw.ncpu)"
-
-      - name: Headless smoke test
-        run: |
-          ./build/macos-release/secmotion-gui.app/Contents/MacOS/secmotion-gui \
-            --headless --strict \
-            --scene examples/minimal/scene.json \
-            --script examples/minimal/demo.jsonl \
-            --output-dir out/macos
-          test -s out/macos/minimal_frame2.png
-
-      - name: Package .dmg
-        run: |
-          bash scripts/package_dmg.sh build/macos-release/secmotion-gui.app dist
-          sha256sum dist/*.dmg > dist/SHA256SUMS
-          shasum -a 256 -c dist/SHA256SUMS
-
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: secmotion-gui-macos-arm64
           path: dist/
           if-no-files-found: error
 

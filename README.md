@@ -7,7 +7,7 @@ The GUI renders LEO satellite motion, inter-satellite links, visibility domes an
 - **interactive**, with real-time GPU rendering (wgpu-native via [WebGPU-Cpp](https://github.com/eliemichel/WebGPU-Cpp));
 - **scriptable**, with a JSONL command protocol where every command has a GUI equivalent;
 - **testable by agents**, thanks to deterministic offscreen rendering, PNG screenshots and JSON results on stdout;
-- **portable**, with static Windows `.exe`, Linux `.AppImage` and macOS `.dmg` builds.
+- **portable**, with static Windows `.exe` and Linux `.AppImage` builds.
 
 > Status: Phase 3 (renderer, HUD, interactive window) and Phase 4 (timeline,
 > layers, telemetry, command palette, recorder) implemented on Linux and
@@ -53,13 +53,6 @@ interactive GLFW + Dear ImGui window. It must not import `wgpu_native.dll`,
 `libgcc_s_seh-1.dll`, `libstdc++-6.dll` or `libwinpthread-1.dll`. System
 imports such as `D3DCOMPILER_47.dll` and `bcryptprimitives.dll` mean Windows
 10/11 is required. See `.opencode/skills/windows-testing/SKILL.md`.
-
-### macOS
-
-```bash
-cmake --preset macos-release
-cmake --build --preset macos-release
-```
 
 ## Usage
 

@@ -6,19 +6,18 @@
 2. **Schema tests**: `schema/*.json` against the examples.
 3. **End-to-end headless** (`tests/e2e`): JSONL scripts, JSON result assertions,
    PNG checks.
-4. **Platform smoke tests**: `.exe` under Wine, AppImage, `.dmg`.
+4. **Platform smoke tests**: `.exe` under Wine, AppImage.
 5. **Golden screenshots**: same-platform exact, cross-platform tolerant.
 
 ## Local preflight
 
 ```bash
-bash scripts/preflight_linux.sh    # Docker: build, ctest, headless, AppImage
-bash scripts/preflight_windows.sh  # Docker: static .exe, Wine smoke test
-bash scripts/preflight_macos.sh    # macOS host: build, headless, .dmg
+bash scripts/preflight_linux.sh    # Docker: build, ctest, headless, windowed, AppImage
+bash scripts/preflight_windows.sh  # Docker: static .exe, Wine headless + windowed
 ```
 
-Run Windows and Linux before triggering the workflow. macOS is validated by the
-first `workflow_dispatch` run of the `macos` job.
+Run both before triggering the workflow. macOS is not part of the supported
+matrix.
 
 ## Headless end-to-end
 
@@ -61,7 +60,7 @@ binary and the packaged AppImage.
 - Same platform: compare `sha256` from the `screenshot` result.
 - Cross platform: compare pixels with mean absolute error below a small
   tolerance (GPU rasterization differs at the last bit), or SSIM above 0.98.
-- Never hardcode a Windows/Linux/macOS hash as a global truth.
+- Never hardcode a platform-specific hash as a global truth.
 
 ## Windows-specific testing
 
@@ -71,8 +70,8 @@ matrix.
 
 ## CI
 
-`.github/workflows/build.yml` has three jobs (Windows Docker, macOS native,
-Linux native) each building, smoke testing and uploading one artifact plus
+`.github/workflows/build.yml` has two jobs (Windows Docker + Wine, Linux
+native) each building, smoke testing and uploading one artifact plus
 `SHA256SUMS`. It starts as `workflow_dispatch` only; tag triggers are enabled
 after the preflight is green.
 

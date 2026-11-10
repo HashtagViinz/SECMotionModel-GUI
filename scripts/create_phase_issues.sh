@@ -69,9 +69,9 @@ create_issue \
   $'## Obiettivo\n\nCompletare interazione e equivalenza GUI/JSONL.\n\n## Deliverable\n\n- timeline con play/pausa, seek, step e speed;\n- pannello layer con shortcut;\n- selezione entità e pannello telemetria;\n- animazione task (spawn, hop, compute, complete/fail) con durata visiva minima;\n- `CommandBus` unico per widget GUI e JSONL;\n- `--record-script` e replay headless con round-trip screenshot;\n- command palette JSON (`Ctrl+K`).\n\n## Gate\n\nOgni comando JSONL ha un controllo GUI documentato; replay GUI→JSONL→screenshot coerente.'
 
 create_issue \
-  "[Fase 5] Packaging e CI: .exe, .AppImage, .dmg con 3 job" \
+  "[Fase 5] Packaging e CI: .exe e .AppImage con 2 job" \
   "phase-5,enhancement" \
-  $'## Obiettivo\n\nProdurre gli artefatti distribuibili e il workflow a tre job.\n\n## Deliverable\n\n- `Dockerfile.windows` finale con stage build/test/export;\n- `scripts/package_appimage.sh` e `scripts/package_dmg.sh`;\n- workflow GitHub Actions con job `windows`, `macos`, `linux` e artifact `SECMotionModel-GUI-*`;\n- `SHA256SUMS` e `build-info.json` per ogni artefatto;\n- trigger `workflow_dispatch` iniziale, tag `v*` dopo il preflight.\n\n## Gate\n\nWorkflow verde; `.exe`, `.AppImage` e `.dmg` scaricati e smoke-testati; import statici verificati.'
+  $'## Obiettivo\n\nProdurre gli artefatti distribuibili e il workflow a due job (Windows e Linux; macOS fuori scope).\n\n## Deliverable\n\n- `Dockerfile.windows` finale con stage build/test/export;\n- `scripts/package_appimage.sh`;\n- workflow GitHub Actions con job `windows` e `linux` e artifact `SECMotionModel-GUI-*`;\n- `SHA256SUMS` per ogni artefatto;\n- trigger `workflow_dispatch` iniziale, tag `v*` dopo il preflight.\n\n## Gate\n\nWorkflow verde; `.exe` e `.AppImage` scaricati e smoke-testati; import statici verificati.'
 
 create_issue \
   "[Fase 6] Documentazione, skill e release" \

@@ -42,25 +42,11 @@
         "SECGUI_BUILD_TESTS": "OFF",
         "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
       }
-    },
-    {
-      "name": "macos-release",
-      "displayName": "macOS Release",
-      "generator": "Unix Makefiles",
-      "binaryDir": "${sourceDir}/build/macos-release",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "SECGUI_STATIC": "ON",
-        "CMAKE_OSX_DEPLOYMENT_TARGET": "12.0",
-        "SECGUI_BUILD_TESTS": "ON",
-        "CMAKE_POLICY_VERSION_MINIMUM": "3.5"
-      }
     }
   ],
   "buildPresets": [
     { "name": "linux-release", "configurePreset": "linux-release" },
     { "name": "linux-debug", "configurePreset": "linux-debug" },
-    { "name": "windows-mingw-release", "configurePreset": "windows-mingw-release" },
-    { "name": "macos-release", "configurePreset": "macos-release" }
+    { "name": "windows-mingw-release", "configurePreset": "windows-mingw-release" }
   ]
 }

@@ -63,7 +63,7 @@ secmotion-gui --headless --scene ... --script out/session.jsonl
 3. Same-platform runs must be byte-identical; cross-platform runs use the
    tolerance because GPU rasterization differs slightly.
 
-Never compare hashes across Linux, macOS and Windows.
+Never compare hashes across Linux and Windows.
 
 ## Evidence for issues
 
