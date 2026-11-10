@@ -122,7 +122,7 @@ Non viene quindi né disegnato né colorato dopo l'uscita dall'orbita/corridoio.
 - frame: 150 (300 s);
 - satelliti nella scena: 760 complessivi, 454–470 per frame;
 - campioni di carico: 597 (0,5 s);
-- forward ISL reali: 976;
+- forward reali: 444 ISL + 532 downlink (976 totali);
 - carico massimo osservato: 40% (2 task CPU in servizio su capacità 5);
 - attivazioni osservate: 344 righe satellite con carico > 0.
 
@@ -140,14 +140,14 @@ temporanea della configurazione con arrivo più frequente
 - carico massimo: 150% (1 task in coda + 2 in servizio su capacità 2);
 - righe satellite oltre il 50%: 219;
 - righe satellite oltre il 100%: 4;
-- forward registrati: 4.820.
+- forward registrati: 2.099 ISL + 2.721 downlink (4.820 totali).
 
 Questa run stress non è la configurazione di default; serve solo come prova
 visiva della saturazione.
 
 ### TO_OBSERVER
 
-- forward registrati: 12.485;
+- forward registrati: 11.343 ISL + 1.142 downlink (12.485 totali);
 - il caso è più adatto a mostrare le onde, perché ogni task attraversa più
   satelliti;
 - il carico CPU dei satelliti è quasi nullo per costruzione (relay).

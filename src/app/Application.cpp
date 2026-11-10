@@ -1588,7 +1588,7 @@ int Application::runWindowed() {
 				}
 				if (layerEnabled("load", false) && !loads_.empty()) {
 					ImGui::Separator();
-					ImGui::TextDisabled("Load 0% -> 100%");
+					ImGui::TextDisabled("Load 0%% -> 100%%");
 					ImDrawList* draw = ImGui::GetWindowDrawList();
 					const ImVec2 origin = ImGui::GetCursorScreenPos();
 					const float width = 180.0f;
