@@ -85,9 +85,19 @@ ln -sf "$PWD/scripts/run_gui.sh" ~/.local/bin/secgui
 secgui                                  # minimal example scene
 secgui --naval                          # exported 760-satellite naval scene
 secgui --naval --time 10 --camera vessel
+secgui --config data/naval_configurations_AP_optimal.json
+secgui --config data/naval_configurations_AP_optimal.json \
+  --trace /tmp/opencode/naval-tasks.jsonl
 secgui path/scene.json path/tasks.jsonl # explicit scene and tasks
 secgui --help                           # full usage
 ```
+
+`--config` runs `tools/export_gui_scene.py` on a core configurations JSON and
+opens the result directly; the first run takes about 20 s and is cached under
+`~/.cache/secgui`, later runs reuse it. Add `--trace` to include task pulses.
+The core configuration already contains the per-step TLEs, access points,
+elevation, range and neighbors; the exporter propagates the TLEs to ECEF and
+writes the GUI frames. The GUI itself does no orbital mechanics.
 
 The launcher prefers `SECGUI_BIN`, then the newest AppImage in `dist/`, then
 `build-gui/secmotion-gui`. It falls back to `APPIMAGE_EXTRACT_AND_RUN=1` when
