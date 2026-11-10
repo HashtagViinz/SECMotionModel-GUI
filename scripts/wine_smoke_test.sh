@@ -17,11 +17,18 @@ export VK_ICD_FILENAMES="${VK_ICD_FILENAMES:-/usr/share/vulkan/icd.d/lvp_icd.x86
 
 mkdir -p "$OUT_DIR"
 
-WINE_BIN="$(command -v wine64 || command -v wine)"
+WINE_BIN="$(command -v wine64 2>/dev/null || true)"
 if [ -z "$WINE_BIN" ]; then
-  echo "error: wine not found" >&2
+  WINE_BIN="$(command -v wine 2>/dev/null || true)"
+fi
+if [ -z "$WINE_BIN" ]; then
+  echo "error: wine not found; candidates:" >&2
+  ls -la /usr/bin/wine* /usr/lib/wine* 2>&1 >&2 || true
   exit 1
 fi
+echo "wine binary: $WINE_BIN"
+echo "winepath: $(command -v winepath 2>/dev/null || echo none)"
+echo "xvfb-run: $(command -v xvfb-run 2>/dev/null || echo none)"
 
 run_wine() {
   if [ -z "${DISPLAY:-}" ] && command -v xvfb-run >/dev/null 2>&1; then

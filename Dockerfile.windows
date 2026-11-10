@@ -67,6 +67,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libvulkan1 \
       mesa-vulkan-drivers \
       vulkan-tools \
+      wine \
       wine64 \
       xvfb \
     && rm -rf /var/lib/apt/lists/* \
