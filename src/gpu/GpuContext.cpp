@@ -7,6 +7,11 @@
 #include <stdexcept>
 #include <thread>
 
+#ifdef SECGUI_WINDOW
+#include <GLFW/glfw3.h>
+#include <glfw3webgpu.h>
+#endif
+
 namespace secgui {
 
 namespace {
@@ -44,12 +49,14 @@ GpuContext::GpuContext(GpuContext&& other) noexcept
 	, adapter(other.adapter)
 	, device(other.device)
 	, queue(other.queue)
+	, surface(other.surface)
 	, adapterName(std::move(other.adapterName))
 	, backendName(std::move(other.backendName)) {
 	other.instance = wgpu::Instance();
 	other.adapter = wgpu::Adapter();
 	other.device = wgpu::Device();
 	other.queue = wgpu::Queue();
+	other.surface = wgpu::Surface();
 }
 
 GpuContext& GpuContext::operator=(GpuContext&& other) noexcept {
@@ -59,12 +66,14 @@ GpuContext& GpuContext::operator=(GpuContext&& other) noexcept {
 		adapter = other.adapter;
 		device = other.device;
 		queue = other.queue;
+		surface = other.surface;
 		adapterName = std::move(other.adapterName);
 		backendName = std::move(other.backendName);
 		other.instance = wgpu::Instance();
 		other.adapter = wgpu::Adapter();
 		other.device = wgpu::Device();
 		other.queue = wgpu::Queue();
+		other.surface = wgpu::Surface();
 	}
 	return *this;
 }
@@ -74,10 +83,13 @@ GpuContext::~GpuContext() {
 }
 
 void GpuContext::release() {
+	if (surface) surface.unconfigure();
+	if (surface) surface.release();
 	if (queue) queue.release();
 	if (device) device.release();
 	if (adapter) adapter.release();
 	if (instance) instance.release();
+	surface = wgpu::Surface();
 	queue = wgpu::Queue();
 	device = wgpu::Device();
 	adapter = wgpu::Adapter();
@@ -95,12 +107,34 @@ void GpuContext::pump() {
 }
 
 GpuContext GpuContext::create(const std::string& backendPreference) {
+	return createImpl(backendPreference, nullptr);
+}
+
+#ifdef SECGUI_WINDOW
+GpuContext GpuContext::createForWindow(const std::string& backendPreference, GLFWwindow* window) {
+	return createImpl(backendPreference, window);
+}
+#endif
+
+GpuContext GpuContext::createImpl(const std::string& backendPreference, GLFWwindow* window) {
 	GpuContext context;
 
 	context.instance = wgpu::createInstance();
 	if (!context.instance) {
 		throw std::runtime_error("failed to create the WebGPU instance");
 	}
+
+#ifdef SECGUI_WINDOW
+	if (window != nullptr) {
+		const WGPUSurface rawSurface = glfwCreateWindowWGPUSurface(context.instance, window);
+		if (rawSurface == nullptr) {
+			throw std::runtime_error("failed to create the WebGPU surface for the GLFW window");
+		}
+		context.surface = wgpu::Surface(rawSurface);
+	}
+#else
+	(void)window;
+#endif
 
 	struct AdapterState {
 		bool done = false;
@@ -113,6 +147,7 @@ GpuContext GpuContext::create(const std::string& backendPreference) {
 	options.powerPreference = wgpu::PowerPreference::HighPerformance;
 	options.forceFallbackAdapter = false;
 	options.backendType = parseBackend(backendPreference);
+	options.compatibleSurface = context.surface ? static_cast<WGPUSurface>(context.surface) : nullptr;
 	const bool specificBackend = options.backendType != wgpu::BackendType::Undefined;
 
 	auto requestAdapter = [&]() -> bool {

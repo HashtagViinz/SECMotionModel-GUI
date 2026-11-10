@@ -13,11 +13,12 @@ driver, and `--record-script` writes GUI actions back as JSONL.
 | `--tasks PATH` | task trace JSONL, overrides the manifest |
 | `--script PATH` | JSONL command script, `-` reads stdin |
 | `--output-dir DIR` | base directory for relative screenshot paths |
-| `--record-script PATH` | record GUI actions as JSONL (Phase 4) |
+| `--record-script PATH` | record GUI actions as JSONL, replayable headless |
 | `--headless` | no window, offscreen rendering |
 | `--screenshot PATH` | render one frame and exit |
-| `--frame N`, `--time S` | frame or time for `--screenshot` |
+| `--frame N`, `--time S` | initial frame/time (windowed) or screenshot frame/time |
 | `--width N`, `--height N` | screenshot size, default 1280x720 |
+| `--window-frames N` | auto-close the interactive window after N frames |
 | `--backend NAME` | `auto`, `vulkan`, `d3d12`, `d3d11`, `metal`, `opengl`, `null` |
 | `--camera MODE` | initial camera: `orbit`, `topdown`, `vessel`, `satellite`, `free` |
 | `--target NAME` | initial camera target entity |
@@ -57,23 +58,28 @@ Codes: `PARSE_ERROR`, `MISSING_CMD`, `UNKNOWN_COMMAND`, `MISSING_FIELD`,
 
 | JSONL | Effect | GUI control | Shortcut |
 |---|---|---|---|
-| `open` | load scene and optional tasks | File → Open | `Ctrl+O` |
-| `play` / `pause` | start/stop playback | toolbar | `Space` |
-| `seek` | go to `frame` or `time` | timeline scrubber | `←` / `→` |
-| `step` | move by `delta` frames (default 1) | step buttons | `Shift+←/→` |
-| `speed` | playback speed | speed menu | `[` / `]` |
-| `camera` | mode, target, distance | camera menu | `1`–`5` |
-| `layer` | show/hide a layer | layer panel | `I`, `D`, `T`, `O` |
-| `select` | select an entity | click or search | `Enter` |
-| `reset` | back to frame 0, paused | reset button | `R` |
-| `state` | current state as JSON | status panel | always visible |
-| `screenshot` | render PNG | F12 / Export | `F12` |
-| `validate` | re-check the scene | Scene → Validate | — |
-| `quit` | exit | File → Quit | `Ctrl+Q` |
+| `open` | load scene and optional tasks | command palette | `Ctrl+K` |
+| `play` / `pause` | start/stop playback | timeline toolbar, HUD | `Space` |
+| `seek` | go to `frame` or `time` | timeline scrubber | — |
+| `step` | move by `delta` frames (default 1) | `<` / `>` buttons | `←` / `→` |
+| `speed` | playback speed | timeline slider | `[` / `]` |
+| `camera` | mode, target, distance | telemetry camera combo | `1`–`5` |
+| `layer` | show/hide a layer | Layers panel | `G` `I` `D` `O` `K` |
+| `select` | select an entity | click satellite/vessel/observer | — |
+| `reset` | back to frame 0, paused | Reset button | `R` |
+| `state` | current state as JSON | HUD + command palette | always visible |
+| `screenshot` | render PNG | Screenshot button | `F12` |
+| `validate` | re-check the scene | command palette | — |
+| `quit` | exit | window close | `Ctrl+Q` |
 
-Phase 1 implements `open`, `seek`, `step`, `play`, `pause`, `speed`, `camera`,
-`layer`, `select`, `reset`, `state`, `screenshot`, `validate`, `quit`.
-The renderer body is replaced in Phase 3; the protocol stays stable.
+The windowed interface dispatches every widget action through the same
+`CommandBus` used by the JSONL driver. With `--record-script PATH`, each
+successful action is appended to `PATH` as a JSONL command, including the
+initial `open`, camera, speed and layer state; replaying that file with
+`--headless --script` reproduces the same screenshots.
+
+Mouse: drag to orbit, wheel to zoom, click to select. Panels: `L` toggles
+Layers, `T` toggles Telemetry, `Ctrl+K` toggles the JSON command palette.
 
 ## Example script
 

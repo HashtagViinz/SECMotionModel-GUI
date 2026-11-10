@@ -38,6 +38,23 @@ Assertions for an agent:
 - `state` reports the expected `frame`, `frame_count` and layers;
 - the PNG exists at the reported absolute path.
 
+## Windowed smoke test
+
+The interactive window can be exercised without a physical display:
+
+```bash
+xvfb-run -a -s "-screen 0 1280x720x24" \
+  ./build/linux-release/secmotion-gui --backend vulkan --strict \
+    --scene examples/minimal/scene.json \
+    --tasks examples/minimal/tasks.jsonl \
+    --window-frames 60
+```
+
+`--window-frames N` closes the window after N rendered frames, so the command
+exits with code `0` and exercises GLFW, the WebGPU surface, Dear ImGui and the
+full render loop. The Docker Linux build runs this test on both the native
+binary and the packaged AppImage.
+
 ## Golden images
 
 - `examples/minimal/golden/` contains Linux/lavapipe references.

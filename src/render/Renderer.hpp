@@ -34,6 +34,7 @@ struct RenderFrame {
 	Mat4 viewProjection;
 	Vec3 cameraRight{1.0, 0.0, 0.0};
 	Vec3 cameraUp{0.0, 1.0, 0.0};
+	Vec3 cameraEye{0.0, 0.0, 0.0};
 	std::vector<LineVertex> lines;
 	std::vector<PointInstance> points;
 };

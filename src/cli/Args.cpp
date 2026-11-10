@@ -93,6 +93,8 @@ Args parseArgs(int argc, char** argv) {
 			args.height = parseInt(token, nextValue(token), 1);
 		} else if (token == "--frame") {
 			args.frame = parseInt(token, nextValue(token), 0);
+		} else if (token == "--window-frames") {
+			args.windowFrames = parseInt(token, nextValue(token), 0);
 		} else if (token == "--time") {
 			args.time = parseDouble(token, nextValue(token));
 		} else if (token == "--speed") {
@@ -131,9 +133,10 @@ std::string helpText() {
 	    << "Rendering:\n"
 	    << "  --headless             no window, offscreen rendering only\n"
 	    << "  --screenshot PATH      render one frame and exit\n"
-	    << "  --frame N              frame index for --screenshot\n"
-	    << "  --time S               time in seconds for --screenshot\n"
+	    << "  --frame N              initial frame (windowed) or --screenshot frame\n"
+	    << "  --time S               initial time (windowed) or --screenshot time\n"
 	    << "  --width N --height N   screenshot size (default: 1280x720)\n"
+	    << "  --window-frames N      auto-close the interactive window after N frames\n"
 	    << "  --backend NAME         auto|vulkan|d3d12|metal|opengl|null\n"
 	    << "  --camera MODE          orbit|topdown|vessel|satellite|free\n"
 	    << "  --target NAME          camera target entity\n"

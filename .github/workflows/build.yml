@@ -82,7 +82,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ninja-build xorg-dev libvulkan1 mesa-vulkan-drivers vulkan-tools file curl zsync
+            ninja-build xorg-dev xvfb xauth libvulkan1 mesa-vulkan-drivers vulkan-tools file curl zsync
           python3 -m pip install --user cmake==3.31.6
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
@@ -110,6 +110,16 @@ jobs:
             --script examples/minimal/demo.jsonl \
             --output-dir out/linux
           test -s out/linux/minimal_frame2.png
+
+      - name: Windowed smoke test (Xvfb)
+        env:
+          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+        run: |
+          xvfb-run -a -s "-screen 0 1280x720x24" \
+            ./build-linux/secmotion-gui --backend vulkan --strict \
+              --scene examples/minimal/scene.json \
+              --tasks examples/minimal/tasks.jsonl \
+              --window-frames 60
 
       - name: Package and test AppImage
         env:

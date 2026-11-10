@@ -17,6 +17,7 @@ endif()
 
 option(SECGUI_STATIC "Prefer static linking of the WebGPU runtime and of the C++ runtime" ON)
 option(SECGUI_BUILD_TESTS "Build tests" ON)
+option(SECGUI_BUILD_WINDOW "Build the interactive GLFW + Dear ImGui window" ON)
 option(SECGUI_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
 
 include(FetchContent)
@@ -77,6 +78,79 @@ if(NOT TARGET stb)
 endif()
 
 # ---------------------------------------------------------------------------
+# Interactive window: GLFW for the native window/surface and Dear ImGui for
+# the HUD, timeline and panels. Both are compiled statically into the binary.
+# ---------------------------------------------------------------------------
+if(SECGUI_BUILD_WINDOW)
+	set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+	set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+	set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+	set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+	set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "" FORCE)
+
+	FetchContent_Declare(
+		glfw
+		URL https://github.com/glfw/glfw/archive/refs/tags/3.4.tar.gz
+		URL_HASH SHA256=c038d34200234d071fae9345bc455e4a8f2f544ab60150765d7704e08f3dac01
+		DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+	)
+	FetchContent_MakeAvailable(glfw)
+
+	FetchContent_Declare(
+		glfw3webgpu
+		URL https://github.com/eliemichel/glfw3webgpu/archive/8f14534e79c590e8a7f7795ea42e01bedea9e137.tar.gz
+		URL_HASH SHA256=38a2623803f8c19e2bab46518e964b07086b476ae894dd0e79b936b7c14324a3
+		DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+	)
+	FetchContent_MakeAvailable(glfw3webgpu)
+
+	FetchContent_Declare(
+		imgui
+		URL https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b.tar.gz
+		URL_HASH SHA256=8e1bbc76c71d74fef2fb85db7e7ca8eba13d6a86623c54992b60162db554ffdb
+		DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+	)
+	FetchContent_MakeAvailable(imgui)
+	if(NOT TARGET secgui_imgui)
+		add_library(secgui_imgui STATIC
+			"${imgui_SOURCE_DIR}/imgui.cpp"
+			"${imgui_SOURCE_DIR}/imgui_draw.cpp"
+			"${imgui_SOURCE_DIR}/imgui_tables.cpp"
+			"${imgui_SOURCE_DIR}/imgui_widgets.cpp"
+			"${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp"
+			"${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp"
+		)
+		target_include_directories(secgui_imgui PUBLIC
+			"${imgui_SOURCE_DIR}"
+			"${imgui_SOURCE_DIR}/backends"
+		)
+		target_compile_definitions(secgui_imgui PUBLIC IMGUI_IMPL_WEBGPU_BACKEND_WGPU GLFW_INCLUDE_NONE)
+		target_link_libraries(secgui_imgui PUBLIC glfw webgpu)
+	endif()
+	if(TARGET glfw3webgpu)
+		target_compile_definitions(glfw3webgpu PRIVATE GLFW_INCLUDE_NONE)
+		if(WIN32)
+			target_compile_definitions(glfw3webgpu PRIVATE _GLFW_WIN32)
+		elseif(APPLE)
+			target_compile_definitions(glfw3webgpu PRIVATE _GLFW_COCOA)
+			target_compile_options(glfw3webgpu PRIVATE -x objective-c)
+			target_link_libraries(glfw3webgpu PRIVATE
+				"-framework Cocoa" "-framework CoreVideo" "-framework IOKit" "-framework QuartzCore")
+		else()
+			target_compile_definitions(glfw3webgpu PRIVATE _GLFW_X11)
+			target_include_directories(glfw3webgpu PRIVATE
+				"${X11_X11_INCLUDE_PATH}"
+				"${X11_Xrandr_INCLUDE_PATH}"
+				"${X11_Xinerama_INCLUDE_PATH}"
+				"${X11_Xcursor_INCLUDE_PATH}"
+				"${X11_Xi_INCLUDE_PATH}"
+				"${X11_Xshape_INCLUDE_PATH}"
+			)
+		endif()
+	endif()
+endif()
+
+# ---------------------------------------------------------------------------
 # Executable
 # ---------------------------------------------------------------------------
 set(SECGUI_SOURCES
@@ -105,6 +179,10 @@ target_link_libraries(secmotion-gui PRIVATE
 	nlohmann_json::nlohmann_json
 	stb
 )
+if(SECGUI_BUILD_WINDOW)
+	target_link_libraries(secmotion-gui PRIVATE secgui_imgui glfw3webgpu glfw)
+	target_compile_definitions(secmotion-gui PRIVATE SECGUI_WINDOW=1)
+endif()
 
 target_compile_definitions(secmotion-gui PRIVATE
 	SECGUI_VERSION="${PROJECT_VERSION}"

@@ -9,6 +9,7 @@
 #include <nlohmann/json.hpp>
 
 #include <filesystem>
+#include <fstream>
 #include <map>
 #include <optional>
 #include <string>
@@ -51,6 +52,10 @@ private:
 	RenderFrame buildRenderFrame(unsigned width, unsigned height) const;
 	nlohmann::json sceneInfo() const;
 	void setFrame(int frame);
+	void seekToTime(double timeS);
+	void advancePlayback(double deltaSeconds);
+	void recordCommand(const std::string& command, const nlohmann::json& payload);
+	int runWindowed();
 	void printReadyLine() const;
 
 	Args args_;
@@ -64,6 +69,7 @@ private:
 	double phiMaxDeg_ = 40.0;
 	double phiBufferDeg_ = 15.0;
 	int currentFrame_ = 0;
+	double sceneTimeS_ = 0.0;
 	bool playing_ = false;
 	bool quit_ = false;
 	double speed_ = 1.0;
@@ -72,6 +78,7 @@ private:
 	std::map<std::string, bool> layers_;
 	std::string selected_;
 	std::string tasksOverride_;
+	std::ofstream recorder_;
 };
 
 } // namespace secgui

@@ -1,0 +1,6 @@
+{"cmd":"open"}
+{"cmd":"camera","mode":"vessel","target":"V-ATLANTIC","distance_km":4500}
+{"cmd":"seek","time":1.2}
+{"cmd":"screenshot","path":"pulse.png","width":1280,"height":720}
+{"cmd":"state"}
+{"cmd":"quit"}

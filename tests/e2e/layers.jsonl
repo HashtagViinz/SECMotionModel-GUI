@@ -1,0 +1,5 @@
+{"cmd":"open"}
+{"cmd":"layer","name":"grid","visible":false}
+{"cmd":"seek","time":1.2}
+{"cmd":"screenshot","path":"no_grid.png","width":1280,"height":720}
+{"cmd":"quit"}

@@ -9,14 +9,15 @@ The GUI renders LEO satellite motion, inter-satellite links, visibility domes an
 - **testable by agents**, thanks to deterministic offscreen rendering, PNG screenshots and JSON results on stdout;
 - **portable**, with static Windows `.exe`, Linux `.AppImage` and macOS `.dmg` builds.
 
-> Status: Phase 0 (bootstrap) and Phase 1 (build spike) in progress.
-> Phase history is tracked in GitHub issues, one per phase.
+> Status: Phase 3 (renderer, HUD, interactive window) and Phase 4 (timeline,
+> layers, telemetry, command palette, recorder) implemented on Linux and
+> validated on bare metal. Windows packaging is being finished next.
 
 ## Layout
 
 ```text
-src/         C++ sources (app, cli, scene, render, screenshot, util)
-shaders/     WGSL shaders
+src/         C++ sources (app, cli, scene, render, screenshot, ui, util)
+shaders/     WGSL shaders (embedded in src/render/Renderer.cpp)
 schema/      JSON schemas for scene, tasks and command protocol
 examples/    minimal scene, JSONL scripts, golden screenshots
 docs/        command reference, scene format, testing
@@ -32,9 +33,14 @@ wgpu-native, GLFW, glfw3webgpu, nlohmann/json, stb).
 ### Linux
 
 ```bash
+# Debian/Ubuntu: sudo apt install build-essential cmake ninja-build xorg-dev
 cmake --preset linux-release
 cmake --build --preset linux-release
 ```
+
+The interactive window needs the X11 development headers (GLFW is built
+statically; Dear ImGui is compiled into the binary). Configure with
+`-DSECGUI_BUILD_WINDOW=OFF` for a headless-only build.
 
 ### Windows (cross-compile with MinGW in Docker)
 
@@ -56,17 +62,26 @@ cmake --build --preset macos-release
 ## Usage
 
 ```bash
-# interactive
+# interactive window (HUD, timeline, layers, telemetry, command palette)
 secmotion-gui --scene examples/minimal/scene.json --tasks examples/minimal/tasks.jsonl
+
+# record GUI/CLI actions and replay them headless
+secmotion-gui --scene examples/minimal/scene.json --record-script out/actions.jsonl
+secmotion-gui --headless --script out/actions.jsonl --output-dir out
 
 # headless script with screenshots
 secmotion-gui --headless --scene examples/minimal/scene.json \
   --script examples/minimal/demo.jsonl --output-dir out
 
-# single screenshot
+# single screenshot at an exact time (task pulses included)
 secmotion-gui --headless --scene examples/minimal/scene.json \
-  --screenshot out/frame.png --frame 2 --width 1280 --height 720
+  --screenshot out/frame.png --time 1.2 --width 1280 --height 720
 ```
+
+Shortcuts: `Space` play/pause, `←`/`→` step, `1`–`5` camera mode,
+`G/I/D/O/K` layers, `L` layers panel, `T` telemetry, `Ctrl+K` command palette,
+`F12` screenshot, `R` reset, `Ctrl+Q` quit. Drag to orbit, wheel to zoom,
+click to select an entity.
 
 See [docs/commands.md](docs/commands.md) for the full JSONL protocol and the
 GUI mapping, and [examples/README.example.md](examples/README.example.md) for a

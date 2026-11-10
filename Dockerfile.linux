@@ -21,7 +21,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       python3 \
       python3-pip \
       vulkan-tools \
+      xauth \
       xorg-dev \
+      xvfb \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m pip install --no-cache-dir cmake==3.31.6
 
@@ -43,7 +45,12 @@ RUN cmake -S . -B build-linux -G Ninja \
     && build-linux/secmotion-gui --headless --backend vulkan --strict \
          --scene examples/minimal/scene.json \
          --script examples/minimal/demo.jsonl \
-         --output-dir out/linux
+         --output-dir out/linux \
+    && xvfb-run -a -s "-screen 0 1280x720x24" \
+         build-linux/secmotion-gui --backend vulkan --strict \
+           --scene examples/minimal/scene.json \
+           --tasks examples/minimal/tasks.jsonl \
+           --window-frames 60
 
 FROM ubuntu:22.04 AS package
 
@@ -53,8 +60,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       curl \
       file \
       libvulkan1 \
+      libx11-6 \
+      libxcursor1 \
+      libxi6 \
+      libxinerama1 \
+      libxkbcommon0 \
+      libxrandr2 \
       mesa-vulkan-drivers \
       python3 \
+      xauth \
+      xvfb \
       zsync \
     && rm -rf /var/lib/apt/lists/*
 
@@ -75,7 +90,12 @@ RUN chmod +x /staging/package_appimage.sh \
          --scene /staging/examples/minimal/scene.json \
          --script /staging/examples/minimal/demo.jsonl \
          --output-dir /staging/out-appimage \
-    && test -s /staging/out-appimage/minimal_frame2.png
+    && test -s /staging/out-appimage/minimal_frame2.png \
+    && xvfb-run -a -s "-screen 0 1280x720x24" \
+         /staging/dist/SECMotionModel-GUI-0.1.0-x86_64.AppImage --backend vulkan --strict \
+           --scene /staging/examples/minimal/scene.json \
+           --tasks /staging/examples/minimal/tasks.jsonl \
+           --window-frames 60
 
 FROM scratch AS export
 COPY --from=build    /src/build-linux/secmotion-gui /secmotion-gui
