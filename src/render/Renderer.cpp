@@ -261,14 +261,15 @@ void Renderer::init(const wgpu::Device& device, const wgpu::Queue& queue, wgpu::
 }
 
 void Renderer::setEarthGrid(std::vector<LineVertex> vertices) {
-	earthGrid_ = std::move(vertices);
-	earthGridCount_ = earthGrid_.size();
+	earthGridCount_ = vertices.size();
+	if (earthGridBuffer_) {
+		earthGridBuffer_.release();
+		earthGridBuffer_ = wgpu::Buffer();
+	}
 	if (earthGridCount_ == 0) {
 		return;
 	}
-	if (earthGridBuffer_) {
-		earthGridBuffer_.release();
-	}
+	earthGrid_ = std::move(vertices);
 	earthGridBuffer_ = createVertexBuffer("earth grid", earthGrid_.size() * sizeof(LineVertex));
 	queue_.writeBuffer(earthGridBuffer_, 0, earthGrid_.data(), earthGrid_.size() * sizeof(LineVertex));
 }

@@ -47,6 +47,7 @@ private:
 	void requireScene() const;
 	void reloadFrame();
 	void buildEarthGrid();
+	bool layerEnabled(const std::string& name, bool fallback = true) const;
 	RenderFrame buildRenderFrame(unsigned width, unsigned height) const;
 	nlohmann::json sceneInfo() const;
 	void setFrame(int frame);

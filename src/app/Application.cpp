@@ -6,6 +6,7 @@
 #include "util/Log.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -157,6 +158,45 @@ double elevationToAngularRadius(double elevationDeg, double earthRadiusKm, doubl
 	return (std::acos(clamped) - elevation) * 180.0 / kPi;
 }
 
+Vec3 lerp(const Vec3& a, const Vec3& b, double t) {
+	return Vec3{
+		a.x + (b.x - a.x) * t,
+		a.y + (b.y - a.y) * t,
+		a.z + (b.z - a.z) * t,
+	};
+}
+
+bool validNode(const Vec3& position) {
+	return position.norm() > 1.0;
+}
+
+Vec3 lookUpNode(const FrameData& frame, const std::string& name,
+                const std::string& terminalName, const std::string& observerName) {
+	if (name.empty()) {
+		return Vec3{};
+	}
+	for (const SatelliteFrame& satellite : frame.satellites) {
+		if (satellite.id == name) {
+			return satellite.ecefKm;
+		}
+	}
+	if (name == terminalName || name == "terminal" || name == "vessel" || name == "V-ATLANTIC") {
+		return frame.vessel.ecefKm;
+	}
+	if (name == observerName || name == "OBS" || name == "observer" || name == "OBSERVER") {
+		return frame.observer.ecefKm;
+	}
+	return Vec3{};
+}
+
+std::array<float, 4> taskColor(const std::string& type) {
+	if (type == "CPU_Intensive") return {0.40f, 0.70f, 1.00f, 1.0f};
+	if (type == "Generic_Service") return {0.50f, 1.00f, 0.60f, 1.0f};
+	if (type == "CPU_and_Data_Intensive") return {0.90f, 0.60f, 1.00f, 1.0f};
+	if (type == "Batch") return {1.00f, 0.80f, 0.40f, 1.0f};
+	return {1.00f, 1.00f, 1.00f, 1.0f};
+}
+
 } // namespace
 
 Application::Application(Args args)
@@ -184,7 +224,19 @@ void Application::buildEarthGrid() {
 	if (renderer_.colorFormat() == wgpu::TextureFormat::Undefined) {
 		return;
 	}
+	if (!layerEnabled("grid", true)) {
+		renderer_.setEarthGrid({});
+		return;
+	}
 	renderer_.setEarthGrid(makeEarthGrid(earthRadiusKm_));
+}
+
+bool Application::layerEnabled(const std::string& name, bool fallback) const {
+	const auto found = layers_.find(name);
+	if (found == layers_.end()) {
+		return fallback;
+	}
+	return found->second;
 }
 
 void Application::reloadFrame() {
@@ -403,48 +455,56 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 	}
 
 	// Inter-satellite links, de-duplicated.
-	for (const SatelliteFrame& satellite : frameData_->satellites) {
-		for (const NeighborRef& neighbor : satellite.neighbors) {
-			if (neighbor.id < satellite.id) {
-				continue;
+	if (layerEnabled("isl", true)) {
+		for (const SatelliteFrame& satellite : frameData_->satellites) {
+			for (const NeighborRef& neighbor : satellite.neighbors) {
+				if (neighbor.id < satellite.id) {
+					continue;
+				}
+				const auto found = byId.find(neighbor.id);
+				if (found == byId.end()) {
+					continue;
+				}
+				addLine(frame.lines, satellite.ecefKm, found->second->ecefKm, 0.25f, 0.55f, 0.95f, 0.35f);
 			}
-			const auto found = byId.find(neighbor.id);
-			if (found == byId.end()) {
-				continue;
-			}
-			addLine(frame.lines, satellite.ecefKm, found->second->ecefKm, 0.25f, 0.55f, 0.95f, 0.35f);
 		}
 	}
 
 	// Visibility dome and buffer zone around the vessel.
-	addCircleOnSphere(frame.lines, frameData_->vessel.ecefKm,
-	                  elevationToAngularRadius(phiMaxDeg_, earthRadiusKm_, kVesselAltitudeKm),
-	                  earthRadiusKm_ * 1.003, 128, 1.0f, 0.72f, 0.25f, 0.85f);
-	addCircleOnSphere(frame.lines, frameData_->vessel.ecefKm,
-	                  elevationToAngularRadius(phiBufferDeg_, earthRadiusKm_, kVesselAltitudeKm),
-	                  earthRadiusKm_ * 1.003, 128, 1.0f, 0.85f, 0.45f, 0.45f);
+	if (layerEnabled("dome", true)) {
+		addCircleOnSphere(frame.lines, frameData_->vessel.ecefKm,
+		                  elevationToAngularRadius(phiMaxDeg_, earthRadiusKm_, kVesselAltitudeKm),
+		                  earthRadiusKm_ * 1.003, 128, 1.0f, 0.72f, 0.25f, 0.85f);
+		addCircleOnSphere(frame.lines, frameData_->vessel.ecefKm,
+		                  elevationToAngularRadius(phiBufferDeg_, earthRadiusKm_, kVesselAltitudeKm),
+		                  earthRadiusKm_ * 1.003, 128, 1.0f, 0.85f, 0.45f, 0.45f);
+	}
 
 	// Great-circle route vessel -> observer.
-	addGreatCircleArc(frame.lines, frameData_->vessel.ecefKm, frameData_->observer.ecefKm,
-	                  earthRadiusKm_ * 1.002, 128, 0.95f, 0.8f, 0.35f, 0.6f);
+	if (layerEnabled("route", true)) {
+		addGreatCircleArc(frame.lines, frameData_->vessel.ecefKm, frameData_->observer.ecefKm,
+		                  earthRadiusKm_ * 1.002, 128, 0.95f, 0.8f, 0.35f, 0.6f);
+	}
 
 	// Satellites.
-	for (const SatelliteFrame& satellite : frameData_->satellites) {
-		PointInstance point;
-		point.x = static_cast<float>(satellite.ecefKm.x);
-		point.y = static_cast<float>(satellite.ecefKm.y);
-		point.z = static_cast<float>(satellite.ecefKm.z);
-		if (satellite.isAp) {
-			point.r = 1.0f; point.g = 0.78f; point.b = 0.25f; point.a = 1.0f;
-			point.sizeKm = 190.0f;
-		} else if (satellite.lifeRemainingS.has_value() && satellite.lifeRemainingS.value() > 0.0) {
-			point.r = 0.35f; point.g = 0.9f; point.b = 0.45f; point.a = 1.0f;
-			point.sizeKm = 120.0f;
-		} else {
-			point.r = 0.55f; point.g = 0.68f; point.b = 0.85f; point.a = 1.0f;
-			point.sizeKm = 95.0f;
+	if (layerEnabled("satellites", true)) {
+		for (const SatelliteFrame& satellite : frameData_->satellites) {
+			PointInstance point;
+			point.x = static_cast<float>(satellite.ecefKm.x);
+			point.y = static_cast<float>(satellite.ecefKm.y);
+			point.z = static_cast<float>(satellite.ecefKm.z);
+			if (satellite.isAp) {
+				point.r = 1.0f; point.g = 0.78f; point.b = 0.25f; point.a = 1.0f;
+				point.sizeKm = 190.0f;
+			} else if (satellite.lifeRemainingS.has_value() && satellite.lifeRemainingS.value() > 0.0) {
+				point.r = 0.35f; point.g = 0.9f; point.b = 0.45f; point.a = 1.0f;
+				point.sizeKm = 120.0f;
+			} else {
+				point.r = 0.55f; point.g = 0.68f; point.b = 0.85f; point.a = 1.0f;
+				point.sizeKm = 95.0f;
+			}
+			frame.points.push_back(point);
 		}
-		frame.points.push_back(point);
 	}
 
 	// Terminals.
@@ -463,6 +523,67 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 	observer.r = 0.3f; observer.g = 0.85f; observer.b = 1.0f; observer.a = 1.0f;
 	observer.sizeKm = 200.0f;
 	frame.points.push_back(observer);
+
+	// Task pulses: interpolate the active hop at the current frame time.
+	if (layerEnabled("tasks", true) && !tasks_.empty()) {
+		std::map<int, std::vector<const TaskEvent*>> byTask;
+		for (const TaskEvent& event : tasks_) {
+			byTask[event.task].push_back(&event);
+		}
+		const double now = frameData_->t;
+		for (const auto& entry : byTask) {
+			const TaskEvent* last = nullptr;
+			const TaskEvent* next = nullptr;
+			for (const TaskEvent* event : entry.second) {
+				if (event->t <= now + 1e-9) {
+					last = event;
+				} else {
+					next = event;
+					break;
+				}
+			}
+			if (last == nullptr || last->event == "complete" || last->event == "fail") {
+				continue;
+			}
+
+			Vec3 position;
+			bool hasPosition = false;
+			if (last->event == "hop_start" && !last->from.empty() && !last->to.empty()) {
+				const Vec3 from = lookUpNode(*frameData_, last->from, scene_->terminalName, scene_->observerName);
+				const Vec3 to = lookUpNode(*frameData_, last->to, scene_->terminalName, scene_->observerName);
+				if (validNode(from) && validNode(to)) {
+					double duration = last->durationS;
+					if (duration <= 0.0 && next != nullptr) {
+						duration = next->t - last->t;
+					}
+					const double visualDuration = std::max(duration, 0.6);
+					const double progress = std::clamp((now - last->t) / visualDuration, 0.0, 1.0);
+					position = lerp(from, to, progress);
+					hasPosition = true;
+				}
+			}
+			if (!hasPosition) {
+				const std::string node = !last->node.empty() ? last->node : (!last->to.empty() ? last->to : last->from);
+				position = lookUpNode(*frameData_, node, scene_->terminalName, scene_->observerName);
+				hasPosition = validNode(position);
+			}
+			if (!hasPosition) {
+				continue;
+			}
+
+			const std::array<float, 4> color = taskColor(last->type);
+			PointInstance pulse;
+			pulse.x = static_cast<float>(position.x);
+			pulse.y = static_cast<float>(position.y);
+			pulse.z = static_cast<float>(position.z);
+			pulse.r = color[0];
+			pulse.g = color[1];
+			pulse.b = color[2];
+			pulse.a = color[3];
+			pulse.sizeKm = 320.0f;
+			frame.points.push_back(pulse);
+		}
+	}
 
 	return frame;
 }
