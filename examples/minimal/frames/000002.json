@@ -1,0 +1,88 @@
+{
+  "index": 2,
+  "t": 4.0,
+  "vessel": { "name": "V-ATLANTIC", "lat": 33.373586, "lon": -47.955604, "ecef_km": [3563.4, -3949.7, 3504.8] },
+  "observer": { "name": "OBS", "lat": 41.9028, "lon": 12.4964, "ecef_km": [4628.5, 1025.3, 4255.5] },
+  "satellites": [
+    {
+      "id": "STARLINK-5707",
+      "ecef_km": [3900.0, -4260.0, 3620.0],
+      "is_ap": true,
+      "elev_deg": 58.6,
+      "az_deg": 131.2,
+      "range_km": 565.1,
+      "life_remaining_s": 113,
+      "terminal_ref": "V-ATLANTIC",
+      "neighbors": [
+        { "id": "STARLINK-33957", "latency_ms": 0.57 },
+        { "id": "STARLINK-37163", "latency_ms": 0.89 }
+      ]
+    },
+    {
+      "id": "STARLINK-33957",
+      "ecef_km": [3720.0, -4060.0, 3990.0],
+      "is_ap": false,
+      "elev_deg": 72.7,
+      "az_deg": 144.7,
+      "range_km": 505.2,
+      "life_remaining_s": 91,
+      "terminal_ref": null,
+      "neighbors": [
+        { "id": "STARLINK-5707", "latency_ms": 0.57 },
+        { "id": "STARLINK-2500", "latency_ms": 1.16 }
+      ]
+    },
+    {
+      "id": "STARLINK-37163",
+      "ecef_km": [3420.0, -4550.0, 3410.0],
+      "is_ap": true,
+      "elev_deg": 49.8,
+      "az_deg": 113.5,
+      "range_km": 678.4,
+      "life_remaining_s": 128,
+      "terminal_ref": "V-ATLANTIC",
+      "neighbors": [
+        { "id": "STARLINK-5707", "latency_ms": 0.89 },
+        { "id": "STARLINK-2500", "latency_ms": 1.33 }
+      ]
+    },
+    {
+      "id": "STARLINK-2500",
+      "ecef_km": [4100.0, -3690.0, 3900.0],
+      "is_ap": false,
+      "elev_deg": 59.9,
+      "az_deg": 159.5,
+      "range_km": 595.3,
+      "life_remaining_s": 84,
+      "terminal_ref": null,
+      "neighbors": [
+        { "id": "STARLINK-33957", "latency_ms": 1.16 },
+        { "id": "STARLINK-37163", "latency_ms": 1.33 }
+      ]
+    },
+    {
+      "id": "STARLINK-1191",
+      "ecef_km": [80.0, -6490.0, 2040.0],
+      "is_ap": false,
+      "elev_deg": -13.5,
+      "az_deg": 272.1,
+      "range_km": 4398.7,
+      "life_remaining_s": null,
+      "terminal_ref": null,
+      "neighbors": []
+    },
+    {
+      "id": "STARLINK-31890",
+      "ecef_km": [-940.0, -6340.0, 2640.0],
+      "is_ap": false,
+      "elev_deg": 45.6,
+      "az_deg": 242.0,
+      "range_km": 723.3,
+      "life_remaining_s": 117,
+      "terminal_ref": null,
+      "neighbors": [
+        { "id": "STARLINK-1191", "latency_ms": 1.67 }
+      ]
+    }
+  ]
+}

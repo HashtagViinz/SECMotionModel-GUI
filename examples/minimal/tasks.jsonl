@@ -1,0 +1,16 @@
+{"t":0.0,"event":"spawn","task":1,"node":"V-ATLANTIC","type":"CPU_and_Data_Intensive","size_mb":13.452}
+{"t":0.0,"event":"hop_start","task":1,"from":"V-ATLANTIC","to":"STARLINK-37163","algo":"GREEDY","duration_s":0.25}
+{"t":0.25,"event":"hop_end","task":1,"from":"V-ATLANTIC","to":"STARLINK-37163","algo":"GREEDY"}
+{"t":0.25,"event":"compute","task":1,"node":"STARLINK-37163"}
+{"t":1.25,"event":"hop_start","task":1,"from":"STARLINK-37163","to":"V-ATLANTIC","algo":"GREEDY","duration_s":0.25}
+{"t":1.5,"event":"complete","task":1,"node":"V-ATLANTIC","rtt_s":1.5}
+{"t":1.0,"event":"spawn","task":2,"node":"V-ATLANTIC","type":"CPU_Intensive","size_mb":1.622}
+{"t":1.0,"event":"hop_start","task":2,"from":"V-ATLANTIC","to":"STARLINK-5707","algo":"GREEDY","duration_s":0.2}
+{"t":1.2,"event":"hop_end","task":2,"from":"V-ATLANTIC","to":"STARLINK-5707","algo":"GREEDY"}
+{"t":1.2,"event":"hop_start","task":2,"from":"STARLINK-5707","to":"STARLINK-33957","algo":"GREEDY","duration_s":0.3}
+{"t":1.5,"event":"compute","task":2,"node":"STARLINK-33957"}
+{"t":2.5,"event":"hop_start","task":2,"from":"STARLINK-33957","to":"V-ATLANTIC","algo":"GREEDY","duration_s":0.3}
+{"t":2.8,"event":"complete","task":2,"node":"V-ATLANTIC","rtt_s":1.8}
+{"t":2.0,"event":"spawn","task":3,"node":"OBS","type":"Generic_Service","size_mb":0.8}
+{"t":2.0,"event":"hop_start","task":3,"from":"OBS","to":"STARLINK-31890","algo":"GREEDY","duration_s":0.2}
+{"t":2.2,"event":"fail","task":3,"node":"STARLINK-31890","reason":"TTL_EXPIRED"}

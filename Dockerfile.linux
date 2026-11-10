@@ -1,0 +1,82 @@
+# syntax=docker/dockerfile:1
+
+# ---------------------------------------------------------------------------
+# Local preflight for Linux: builds, runs unit tests and the headless smoke
+# test, then packages and re-tests the AppImage.
+#
+#   docker build -f Dockerfile.linux --target export --output type=local,dest=dist .
+# ---------------------------------------------------------------------------
+
+FROM ubuntu:22.04 AS build
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential \
+      ca-certificates \
+      curl \
+      git \
+      libvulkan1 \
+      mesa-vulkan-drivers \
+      ninja-build \
+      python3 \
+      python3-pip \
+      vulkan-tools \
+      xorg-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m pip install --no-cache-dir cmake==3.31.6
+
+WORKDIR /src
+COPY . .
+
+ENV VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+
+RUN cmake -S . -B build-linux -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DSECGUI_STATIC=ON \
+      -DSECGUI_BUILD_TESTS=ON \
+      -DWEBGPU_BACKEND=WGPU \
+      -DWEBGPU_LINK_TYPE=STATIC \
+      -DWEBGPU_BUILD_FROM_SOURCE=OFF \
+      -DWGPU_VERSION=v24.0.3.1 \
+    && cmake --build build-linux -j"$(nproc)" \
+    && ctest --test-dir build-linux --output-on-failure \
+    && build-linux/secmotion-gui --headless --backend vulkan --strict \
+         --scene examples/minimal/scene.json \
+         --script examples/minimal/demo.jsonl \
+         --output-dir out/linux
+
+FROM ubuntu:22.04 AS package
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      file \
+      libvulkan1 \
+      mesa-vulkan-drivers \
+      python3 \
+      zsync \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL -o /usr/local/bin/appimagetool \
+      https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage \
+    && chmod +x /usr/local/bin/appimagetool
+
+COPY --from=build /src/build-linux/secmotion-gui /staging/secmotion-gui
+COPY scripts/package_appimage.sh /staging/package_appimage.sh
+COPY examples/ /staging/examples/
+
+ENV VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json \
+    APPIMAGE_EXTRACT_AND_RUN=1
+
+RUN chmod +x /staging/package_appimage.sh \
+    && /staging/package_appimage.sh /staging/secmotion-gui /staging/dist \
+    && /staging/dist/SECMotionModel-GUI-0.1.0-x86_64.AppImage --headless --backend vulkan --strict \
+         --scene /staging/examples/minimal/scene.json \
+         --script /staging/examples/minimal/demo.jsonl \
+         --output-dir /staging/out-appimage \
+    && test -s /staging/out-appimage/minimal_frame2.png
+
+FROM scratch AS export
+COPY --from=build    /src/build-linux/secmotion-gui /secmotion-gui
+COPY --from=package  /staging/dist/ /

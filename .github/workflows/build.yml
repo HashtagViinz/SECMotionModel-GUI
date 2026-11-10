@@ -1,0 +1,135 @@
+name: build
+
+# Phase 5 enables tag/push triggers after the local preflight is green.
+# Until then the workflow is manual only:
+#   gh workflow run build --repo HashtagViinz/SECMotionModel-GUI
+on:
+  workflow_dispatch:
+  # push:
+  #   tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows x86_64 (MinGW, static .exe)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Build and Wine smoke test
+        run: docker build -f Dockerfile.windows --target test -t secgui-windows-test .
+
+      - name: Export static .exe
+        run: |
+          mkdir -p dist
+          docker build -f Dockerfile.windows --target export --output type=local,dest=dist .
+          mv dist/secmotion-gui.exe dist/SECMotionModel-GUI-windows-x86_64.exe
+          sha256sum dist/SECMotionModel-GUI-windows-x86_64.exe > dist/SHA256SUMS
+          file dist/SECMotionModel-GUI-windows-x86_64.exe
+          ls -lh dist
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: secmotion-gui-windows-x86_64
+          path: dist/
+          if-no-files-found: error
+
+  macos:
+    name: macOS arm64 (.dmg)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Configure and build
+        run: |
+          cmake --preset macos-release
+          cmake --build --preset macos-release -j "$(sysctl -n hw.ncpu)"
+
+      - name: Headless smoke test
+        run: |
+          ./build/macos-release/secmotion-gui.app/Contents/MacOS/secmotion-gui \
+            --headless --strict \
+            --scene examples/minimal/scene.json \
+            --script examples/minimal/demo.jsonl \
+            --output-dir out/macos
+          test -s out/macos/minimal_frame2.png
+
+      - name: Package .dmg
+        run: |
+          bash scripts/package_dmg.sh build/macos-release/secmotion-gui.app dist
+          sha256sum dist/*.dmg > dist/SHA256SUMS
+          shasum -a 256 -c dist/SHA256SUMS
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: secmotion-gui-macos-arm64
+          path: dist/
+          if-no-files-found: error
+
+  linux:
+    name: Linux x86_64 (.AppImage)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install build and runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build xorg-dev libvulkan1 mesa-vulkan-drivers vulkan-tools file curl zsync
+          python3 -m pip install --user cmake==3.31.6
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Configure and build
+        env:
+          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+        run: |
+          cmake -S . -B build-linux -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSECGUI_STATIC=ON \
+            -DSECGUI_BUILD_TESTS=ON \
+            -DWEBGPU_BACKEND=WGPU \
+            -DWEBGPU_LINK_TYPE=STATIC \
+            -DWEBGPU_BUILD_FROM_SOURCE=OFF \
+            -DWGPU_VERSION=v24.0.3.1
+          cmake --build build-linux -j "$(nproc)"
+          ctest --test-dir build-linux --output-on-failure
+
+      - name: Headless smoke test
+        env:
+          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+        run: |
+          ./build-linux/secmotion-gui --headless --backend vulkan --strict \
+            --scene examples/minimal/scene.json \
+            --script examples/minimal/demo.jsonl \
+            --output-dir out/linux
+          test -s out/linux/minimal_frame2.png
+
+      - name: Package and test AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+        run: |
+          curl -fsSL -o /usr/local/bin/appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x /usr/local/bin/appimagetool
+          bash scripts/package_appimage.sh build-linux/secmotion-gui dist
+          ./dist/SECMotionModel-GUI-0.1.0-x86_64.AppImage --headless --backend vulkan --strict \
+            --scene examples/minimal/scene.json \
+            --script examples/minimal/demo.jsonl \
+            --output-dir out/appimage
+          test -s out/appimage/minimal_frame2.png
+          sha256sum dist/*.AppImage > dist/SHA256SUMS
+          ls -lh dist
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: secmotion-gui-linux-x86_64
+          path: dist/
+          if-no-files-found: error

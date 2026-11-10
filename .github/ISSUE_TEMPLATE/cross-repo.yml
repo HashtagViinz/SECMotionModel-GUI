@@ -1,0 +1,52 @@
+name: Cross-repo request
+description: Request work, report a bug or hand off evidence between the core simulator and the GUI.
+title: "[from-core] "
+labels: ["needs-info"]
+body:
+  - type: dropdown
+    id: direction
+    attributes:
+      label: Direction
+      options:
+        - from core to GUI
+        - from GUI to core
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Commit, version, command and what you were doing.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Exact output, exit code, logs (sanitized).
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Minimal commands or JSONL script.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence links
+      description: Screenshots, logs, scene files; use the agent-media release/branch when possible.
+  - type: input
+    id: sibling
+    attributes:
+      label: Sibling issue
+      description: Full URL of the related issue in the other repository, if any.

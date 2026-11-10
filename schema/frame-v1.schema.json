@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HashtagViinz/SECMotionModel-GUI/schema/frame-v1.schema.json",
+  "title": "SECMotionModel GUI frame v1",
+  "type": "object",
+  "required": ["index", "t", "satellites"],
+  "additionalProperties": true,
+  "properties": {
+    "index": { "type": "integer", "minimum": 0 },
+    "t": { "type": "number", "minimum": 0 },
+    "vessel": { "$ref": "#/$defs/entity" },
+    "observer": { "$ref": "#/$defs/entity" },
+    "satellites": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "ecef_km"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "ecef_km": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": { "type": "number" }
+          },
+          "is_ap": { "type": "boolean" },
+          "elev_deg": { "type": "number" },
+          "az_deg": { "type": "number" },
+          "range_km": { "type": "number", "minimum": 0 },
+          "life_remaining_s": { "type": ["number", "null"] },
+          "terminal_ref": { "type": ["string", "null"] },
+          "neighbors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id"],
+              "properties": {
+                "id": { "type": "string" },
+                "latency_ms": { "type": "number", "minimum": 0 }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "entity": {
+      "type": "object",
+      "required": ["ecef_km"],
+      "properties": {
+        "name": { "type": "string" },
+        "lat": { "type": "number" },
+        "lon": { "type": "number" },
+        "ecef_km": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "number" }
+        }
+      }
+    }
+  }
+}

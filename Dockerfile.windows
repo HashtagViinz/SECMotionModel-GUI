@@ -1,0 +1,85 @@
+# syntax=docker/dockerfile:1
+
+# ---------------------------------------------------------------------------
+# SECMotionModel GUI - Windows x86_64 cross build with mingw-w64.
+#
+# Stages:
+#   build   cross-compiles a statically linked .exe
+#   test    runs the .exe under Wine (headless, software Vulkan)
+#   export  emits only the .exe for `docker build --output`
+#
+# Usage:
+#   docker build -f Dockerfile.windows --target test   -t secgui-win-test .
+#   docker build -f Dockerfile.windows --target export --output type=local,dest=dist .
+# ---------------------------------------------------------------------------
+
+FROM debian:bookworm-slim AS build
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      cmake \
+      curl \
+      git \
+      g++-mingw-w64-x86-64-posix \
+      gcc-mingw-w64-x86-64-posix \
+      ninja-build \
+      unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+COPY . .
+
+RUN cmake -S . -B build-win -G Ninja \
+      -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/mingw-w64.cmake \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DSECGUI_STATIC=ON \
+      -DSECGUI_BUILD_TESTS=OFF \
+      -DWEBGPU_BACKEND=WGPU \
+      -DWEBGPU_LINK_TYPE=STATIC \
+      -DWEBGPU_BUILD_FROM_SOURCE=OFF \
+      -DWGPU_VERSION=v24.0.3.1 \
+    && cmake --build build-win --target secmotion-gui -j"$(nproc)" \
+    && x86_64-w64-mingw32-strip build-win/secmotion-gui.exe \
+    && cp build-win/secmotion-gui.exe /secmotion-gui.exe
+
+# The Windows artifact must be statically linked: no mingw or wgpu DLLs.
+RUN set -eux; \
+    x86_64-w64-mingw32-objdump -p /secmotion-gui.exe \
+      | awk '$1 == "DLL" && $2 == "Name:" { print $3 }' \
+      | sort -u > /secmotion-gui-imports.txt; \
+    cat /secmotion-gui-imports.txt; \
+    if grep -Eiq 'wgpu_native\.dll|libgcc_s_seh-1\.dll|libstdc\+\+-6\.dll|libwinpthread-1\.dll' /secmotion-gui-imports.txt; then \
+      echo "FATAL: dynamic mingw/wgpu imports found" >&2; \
+      exit 1; \
+    fi; \
+    file /secmotion-gui.exe
+
+# ---------------------------------------------------------------------------
+FROM debian:bookworm-slim AS test
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      libvulkan1 \
+      mesa-vulkan-drivers \
+      vulkan-tools \
+      wine64 \
+      winetricks \
+      xvfb \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV WINEPREFIX=/wine \
+    WINEARCH=win64 \
+    WINEDEBUG=-all
+
+COPY --from=build /secmotion-gui.exe /app/secmotion-gui.exe
+COPY examples/ /app/examples/
+COPY scripts/wine_smoke_test.sh /usr/local/bin/wine_smoke_test.sh
+
+RUN chmod +x /usr/local/bin/wine_smoke_test.sh \
+    && /usr/local/bin/wine_smoke_test.sh /app/secmotion-gui.exe
+
+# ---------------------------------------------------------------------------
+FROM scratch AS export
+COPY --from=build /secmotion-gui.exe /secmotion-gui.exe

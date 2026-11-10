@@ -1,0 +1,66 @@
+# Testing
+
+## Layers
+
+1. **Unit tests** (`tests/unit`): SHA-256, CLI parsing; more as modules land.
+2. **Schema tests**: `schema/*.json` against the examples.
+3. **End-to-end headless** (`tests/e2e`): JSONL scripts, JSON result assertions,
+   PNG checks.
+4. **Platform smoke tests**: `.exe` under Wine, AppImage, `.dmg`.
+5. **Golden screenshots**: same-platform exact, cross-platform tolerant.
+
+## Local preflight
+
+```bash
+bash scripts/preflight_linux.sh    # Docker: build, ctest, headless, AppImage
+bash scripts/preflight_windows.sh  # Docker: static .exe, Wine smoke test
+bash scripts/preflight_macos.sh    # macOS host: build, headless, .dmg
+```
+
+Run Windows and Linux before triggering the workflow. macOS is validated by the
+first `workflow_dispatch` run of the `macos` job.
+
+## Headless end-to-end
+
+```bash
+secmotion-gui --headless --strict \
+  --scene examples/minimal/scene.json \
+  --tasks examples/minimal/tasks.jsonl \
+  --script examples/minimal/demo.jsonl \
+  --output-dir out/e2e
+```
+
+Assertions for an agent:
+
+- exit code `0`;
+- every stdout line parses as JSON and has `"ok": true`;
+- the `screenshot` result has the requested dimensions and `nonblank: true`;
+- `state` reports the expected `frame`, `frame_count` and layers;
+- the PNG exists at the reported absolute path.
+
+## Golden images
+
+- `examples/minimal/golden/` contains Linux/lavapipe references.
+- Same platform: compare `sha256` from the `screenshot` result.
+- Cross platform: compare pixels with mean absolute error below a small
+  tolerance (GPU rasterization differs at the last bit), or SSIM above 0.98.
+- Never hardcode a Windows/Linux/macOS hash as a global truth.
+
+## Windows-specific testing
+
+See `.opencode/skills/windows-testing/SKILL.md`: static import checks
+(`objdump -p`), Wine + lavapipe, winetricks, Bottles fallback and the failure
+matrix.
+
+## CI
+
+`.github/workflows/build.yml` has three jobs (Windows Docker, macOS native,
+Linux native) each building, smoke testing and uploading one artifact plus
+`SHA256SUMS`. It starts as `workflow_dispatch` only; tag triggers are enabled
+after the preflight is green.
+
+## Reporting failures
+
+Use the `gh-issues` skill: exact command, commit, backend/adapter line from the
+`ready` event, sanitized logs, screenshot, and the scene/script used. Attach
+media through the `agent-media` release with `scripts/gh_attach_media.sh`.

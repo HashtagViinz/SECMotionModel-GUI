@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HashtagViinz/SECMotionModel-GUI/schema/tasks-v1.schema.json",
+  "title": "SECMotionModel GUI task trace v1",
+  "type": "object",
+  "required": ["t", "event", "task"],
+  "additionalProperties": true,
+  "properties": {
+    "t": { "type": "number", "minimum": 0 },
+    "event": {
+      "enum": ["spawn", "hop_start", "hop_end", "compute", "deliver", "complete", "fail"]
+    },
+    "task": { "type": "integer", "minimum": 1 },
+    "node": { "type": "string" },
+    "from": { "type": "string" },
+    "to": { "type": "string" },
+    "type": { "type": "string" },
+    "algo": { "type": "string" },
+    "size_mb": { "type": "number", "minimum": 0 },
+    "duration_s": { "type": "number", "minimum": 0 },
+    "rtt_s": { "type": "number", "minimum": 0 },
+    "reason": { "type": "string" }
+  }
+}

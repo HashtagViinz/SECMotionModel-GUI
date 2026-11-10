@@ -1,0 +1,62 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "linux-release",
+      "displayName": "Linux Release",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/linux-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SECGUI_STATIC": "ON",
+        "SECGUI_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "linux-debug",
+      "displayName": "Linux Debug",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/linux-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SECGUI_STATIC": "ON",
+        "SECGUI_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "windows-mingw-release",
+      "displayName": "Windows x86_64 MinGW Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/windows-mingw-release",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/mingw-w64.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SECGUI_STATIC": "ON",
+        "SECGUI_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "macos-release",
+      "displayName": "macOS Release",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/macos-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SECGUI_STATIC": "ON",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "12.0",
+        "SECGUI_BUILD_TESTS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "linux-release", "configurePreset": "linux-release" },
+    { "name": "linux-debug", "configurePreset": "linux-debug" },
+    { "name": "windows-mingw-release", "configurePreset": "windows-mingw-release" },
+    { "name": "macos-release", "configurePreset": "macos-release" }
+  ]
+}

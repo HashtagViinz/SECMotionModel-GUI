@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HashtagViinz/SECMotionModel-GUI/schema/scene-v1.schema.json",
+  "title": "SECMotionModel GUI scene manifest v1",
+  "type": "object",
+  "required": ["version", "t0", "interval_s", "frames"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "const": 1 },
+    "t0": { "type": "string", "minLength": 1 },
+    "interval_s": { "type": "number", "exclusiveMinimum": 0 },
+    "duration_s": { "type": "number", "minimum": 0 },
+    "terminal": { "$ref": "#/$defs/point" },
+    "observer": { "$ref": "#/$defs/point" },
+    "frames": {
+      "type": "object",
+      "required": ["count"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 1 },
+        "pattern": { "type": "string", "minLength": 1 }
+      }
+    },
+    "tasks": { "type": "string" }
+  },
+  "$defs": {
+    "point": {
+      "type": "object",
+      "required": ["name", "lat", "lon"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 }
+      }
+    }
+  }
+}

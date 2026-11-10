@@ -1,0 +1,9 @@
+{"protocol":1,"cmd":"open","scene":"examples/minimal/scene.json","tasks":"examples/minimal/tasks.jsonl"}
+{"cmd":"camera","mode":"vessel","target":"V-ATLANTIC","distance_km":2200}
+{"cmd":"layer","name":"isl","visible":true}
+{"cmd":"layer","name":"dome","visible":true}
+{"cmd":"layer","name":"tasks","visible":true}
+{"cmd":"seek","frame":2}
+{"cmd":"screenshot","path":"minimal_frame2.png","width":1280,"height":720}
+{"cmd":"state"}
+{"cmd":"quit"}

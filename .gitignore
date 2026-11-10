@@ -1,0 +1,19 @@
+build/
+build-*/
+dist/
+out/
+.cache/
+.ccache/
+CMakeUserPresets.json
+compile_commands.json
+.DS_Store
+*.user
+*.swp
+
+# Generated data and test artifacts
+examples/generated/
+screenshots/
+*.log
+
+# Local agent media (never commit binaries here, use the agent-media branch)
+agent-media/

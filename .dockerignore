@@ -1,0 +1,9 @@
+.git
+.gitignore
+build
+build-*
+dist
+out
+screenshots
+examples/generated
+*.log

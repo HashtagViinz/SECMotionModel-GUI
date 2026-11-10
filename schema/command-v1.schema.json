@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HashtagViinz/SECMotionModel-GUI/schema/command-v1.schema.json",
+  "title": "SECMotionModel GUI JSONL command v1",
+  "type": "object",
+  "required": ["cmd"],
+  "additionalProperties": true,
+  "properties": {
+    "protocol": { "const": 1 },
+    "seq": { "type": "integer", "minimum": 1 },
+    "cmd": {
+      "enum": [
+        "open", "seek", "step", "play", "pause", "speed", "camera", "layer",
+        "select", "reset", "state", "screenshot", "validate", "quit"
+      ]
+    },
+    "scene": { "type": "string" },
+    "tasks": { "type": "string" },
+    "frame": { "type": "integer", "minimum": 0 },
+    "time": { "type": "number", "minimum": 0 },
+    "delta": { "type": "integer" },
+    "value": { "type": "number", "exclusiveMinimum": 0 },
+    "mode": { "type": "string" },
+    "target": { "type": "string" },
+    "name": { "type": "string" },
+    "visible": { "type": "boolean" },
+    "entity": { "type": "string" },
+    "path": { "type": "string" },
+    "width": { "type": "integer", "minimum": 1 },
+    "height": { "type": "integer", "minimum": 1 }
+  }
+}
