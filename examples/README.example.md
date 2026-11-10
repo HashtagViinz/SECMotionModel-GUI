@@ -75,7 +75,7 @@ The script above prints one JSON object per command on stdout and writes
 `out/minimal_frame2.png`. Example result:
 
 ```json
-{"protocol":1,"event":"ready","version":"0.1.1","backend":"vulkan","adapter":"llvmpipe"}
+{"protocol":1,"event":"ready","version":"0.1.2","backend":"vulkan","adapter":"llvmpipe"}
 {"protocol":1,"seq":1,"cmd":"open","ok":true,"result":{"frame_count":3,"interval_s":2.0,"...":"..."}}
 {"protocol":1,"seq":7,"cmd":"screenshot","ok":true,"result":{"path":"/.../out/minimal_frame2.png","width":1280,"height":720,"sha256":"...","nonblank":true}}
 ```

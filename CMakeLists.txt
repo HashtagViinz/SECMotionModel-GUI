@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(SECMotionModelGUI
-	VERSION 0.1.1
+	VERSION 0.1.2
 	DESCRIPTION "Native WebGPU visualizer for the SECMotionModel satellite edge-computing simulator"
 	LANGUAGES C CXX
 )

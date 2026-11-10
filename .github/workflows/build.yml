@@ -107,7 +107,7 @@ jobs:
             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x /usr/local/bin/appimagetool
           bash scripts/package_appimage.sh build-linux/secmotion-gui dist
-          ./dist/SECMotionModel-GUI-0.1.1-x86_64.AppImage --headless --backend vulkan --strict \
+          ./dist/SECMotionModel-GUI-0.1.2-x86_64.AppImage --headless --backend vulkan --strict \
             --scene examples/minimal/scene.json \
             --script examples/minimal/demo.jsonl \
             --output-dir out/appimage

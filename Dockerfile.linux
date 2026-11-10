@@ -86,13 +86,13 @@ ENV VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json \
 
 RUN chmod +x /staging/package_appimage.sh \
     && /staging/package_appimage.sh /staging/secmotion-gui /staging/dist \
-    && /staging/dist/SECMotionModel-GUI-0.1.1-x86_64.AppImage --headless --backend vulkan --strict \
+    && /staging/dist/SECMotionModel-GUI-0.1.2-x86_64.AppImage --headless --backend vulkan --strict \
          --scene /staging/examples/minimal/scene.json \
          --script /staging/examples/minimal/demo.jsonl \
          --output-dir /staging/out-appimage \
     && test -s /staging/out-appimage/minimal_frame2.png \
     && xvfb-run -a -s "-screen 0 1280x720x24" \
-         /staging/dist/SECMotionModel-GUI-0.1.1-x86_64.AppImage --backend vulkan --strict \
+         /staging/dist/SECMotionModel-GUI-0.1.2-x86_64.AppImage --backend vulkan --strict \
            --scene /staging/examples/minimal/scene.json \
            --tasks /staging/examples/minimal/tasks.jsonl \
            --window-frames 60
