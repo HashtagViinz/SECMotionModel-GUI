@@ -25,6 +25,7 @@ struct Args {
 	bool headless = false;
 	bool strict = false;
 	bool validateOnly = false;
+	bool playOnStart = false;
 	bool showHelp = false;
 	bool showVersion = false;
 	bool quiet = false;

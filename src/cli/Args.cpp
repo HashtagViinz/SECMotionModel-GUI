@@ -105,6 +105,8 @@ Args parseArgs(int argc, char** argv) {
 			args.logLevel = nextValue(token);
 		} else if (token == "--headless") {
 			args.headless = true;
+		} else if (token == "--play") {
+			args.playOnStart = true;
 		} else if (token == "--strict") {
 			args.strict = true;
 		} else if (token == "--validate-only") {
@@ -137,6 +139,7 @@ std::string helpText() {
 	    << "  --time S               initial time (windowed) or --screenshot time\n"
 	    << "  --width N --height N   screenshot size (default: 1280x720)\n"
 	    << "  --window-frames N      auto-close the interactive window after N frames\n"
+	    << "  --play                 start playback immediately (windowed)\n"
 	    << "  --backend NAME         auto|vulkan|d3d12|metal|opengl|null\n"
 	    << "  --camera MODE          orbit|topdown|vessel|satellite|free\n"
 	    << "  --target NAME          camera target entity\n"

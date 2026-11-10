@@ -361,6 +361,9 @@ void Application::applyInitialState() {
 	} else if (args_.time >= 0.0) {
 		seekToTime(args_.time);
 	}
+	if (args_.playOnStart) {
+		playing_ = true;
+	}
 }
 
 void Application::setFrame(int frame) {
