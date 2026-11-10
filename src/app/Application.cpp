@@ -1540,31 +1540,70 @@ int Application::runWindowed() {
 
 		if (scene_ && frameData_) {
 			ImDrawList* drawList = ImGui::GetBackgroundDrawList();
-			const auto drawEntityLabel = [&](const std::string& name, const Vec3& position,
-			                                 ImU32 color) {
+			std::vector<ImVec2> labelAnchors;
+			int labelCount = 0;
+			const auto tryDrawLabel = [&](const std::string& text, const Vec3& position,
+			                              ImU32 color, bool force) {
+				if (labelCount >= 24) {
+					return;
+				}
 				if (earthOccludes(sceneFrame.cameraEye, position, earthRadiusKm_ * 1.01)) {
 					return;
 				}
-				drawOverlayLabel(drawList, projectToScreen(sceneFrame, position, width, height),
-				                 color, name);
-			};
-			drawEntityLabel(frameData_->vessel.name, frameData_->vessel.ecefKm,
-			                IM_COL32(90, 220, 255, 255));
-			drawEntityLabel(frameData_->observer.name, frameData_->observer.ecefKm,
-			                IM_COL32(120, 170, 255, 255));
-			int extraLabels = 0;
-			for (const SatelliteFrame& satellite : frameData_->satellites) {
-				const bool isSelected = satellite.id == selected_;
-				if (!isSelected && !satellite.isAp) {
-					if (extraLabels >= 24) {
-						continue;
-					}
-					++extraLabels;
+				const ScreenPoint screen = projectToScreen(sceneFrame, position, width, height);
+				if (!screen.visible) {
+					return;
 				}
-				const ImU32 color = isSelected
-					? IM_COL32(255, 230, 90, 255)
-					: (satellite.isAp ? IM_COL32(255, 190, 70, 255) : IM_COL32(170, 195, 225, 210));
-				drawEntityLabel(satellite.id, satellite.ecefKm, color);
+				if (!force) {
+					for (const ImVec2& anchor : labelAnchors) {
+						if (std::hypot(screen.x - anchor.x, screen.y - anchor.y) < 70.0f) {
+							return;
+						}
+					}
+				}
+				labelAnchors.emplace_back(screen.x, screen.y);
+				++labelCount;
+				drawOverlayLabel(drawList, screen, color, text);
+			};
+
+			const auto drawSelectionRing = [&](const std::string& id, const Vec3& position) {
+				if (id != selected_ || earthOccludes(sceneFrame.cameraEye, position, earthRadiusKm_ * 1.01)) {
+					return;
+				}
+				const ScreenPoint screen = projectToScreen(sceneFrame, position, width, height);
+				if (screen.visible) {
+					drawList->AddCircle(ImVec2(screen.x, screen.y), 12.0f,
+					                    IM_COL32(255, 230, 90, 255), 24, 2.0f);
+				}
+			};
+
+			// Selected entity first so it always gets a label; then the two fixed
+			// entities; the rest is de-cluttered by screen-space distance.
+			for (const SatelliteFrame& satellite : frameData_->satellites) {
+				if (satellite.id == selected_) {
+					drawSelectionRing(satellite.id, satellite.ecefKm);
+					tryDrawLabel(satellite.id, satellite.ecefKm,
+					             IM_COL32(255, 230, 90, 255), true);
+					break;
+				}
+			}
+			drawSelectionRing(frameData_->vessel.name, frameData_->vessel.ecefKm);
+			tryDrawLabel(frameData_->vessel.name, frameData_->vessel.ecefKm,
+			             IM_COL32(90, 220, 255, 255), true);
+			drawSelectionRing(frameData_->observer.name, frameData_->observer.ecefKm);
+			tryDrawLabel(frameData_->observer.name, frameData_->observer.ecefKm,
+			             IM_COL32(120, 170, 255, 255), true);
+			for (const SatelliteFrame& satellite : frameData_->satellites) {
+				if (satellite.isAp) {
+					tryDrawLabel(satellite.id, satellite.ecefKm,
+					             IM_COL32(255, 190, 70, 255), false);
+				}
+			}
+			for (const SatelliteFrame& satellite : frameData_->satellites) {
+				if (!satellite.isAp && satellite.id != selected_) {
+					tryDrawLabel(satellite.id, satellite.ecefKm,
+					             IM_COL32(170, 195, 225, 210), false);
+				}
 			}
 		}
 
