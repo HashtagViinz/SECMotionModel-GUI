@@ -34,8 +34,9 @@ set(WGPU_VERSION "v24.0.3.1" CACHE STRING "" FORCE)
 
 FetchContent_Declare(
 	webgpu_distribution
-	GIT_REPOSITORY https://github.com/eliemichel/WebGPU-distribution.git
-	GIT_TAG        17dcd42a7683355e7a40ac4e97e77f36dff5b5ab
+	URL https://github.com/eliemichel/WebGPU-distribution/archive/17dcd42a7683355e7a40ac4e97e77f36dff5b5ab.tar.gz
+	URL_HASH SHA256=e20d22d276b2be22938601a89992b32f2694cc03b6148af5618b2d256c715522
+	DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(webgpu_distribution)
 
