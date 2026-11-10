@@ -71,6 +71,12 @@ exec "$HERE/usr/bin/secmotion-gui" "$@"
 EOF
 chmod +x "$APPDIR/AppRun"
 
+# appimagetool looks for the desktop file and the icon both in the standard
+# XDG locations and at the AppDir root.
+cp "$APPDIR/usr/share/applications/secmotion-gui.desktop" "$APPDIR/secmotion-gui.desktop"
+cp "$APPDIR/usr/share/icons/hicolor/256x256/apps/secmotion-gui.png" "$APPDIR/secmotion-gui.png"
+cp "$APPDIR/secmotion-gui.png" "$APPDIR/.DirIcon"
+
 mkdir -p "$OUT"
 TARGET="$OUT/SECMotionModel-GUI-${VERSION}-x86_64.AppImage"
 

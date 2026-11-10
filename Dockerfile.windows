@@ -17,9 +17,11 @@ FROM debian:bookworm-slim AS build
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
+      binutils-mingw-w64-x86-64 \
       ca-certificates \
       cmake \
       curl \
+      file \
       git \
       g++-mingw-w64-x86-64-posix \
       gcc-mingw-w64-x86-64-posix \
