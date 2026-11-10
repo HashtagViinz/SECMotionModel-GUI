@@ -61,13 +61,16 @@ FROM debian:bookworm-slim AS test
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
+      curl \
       libvulkan1 \
       mesa-vulkan-drivers \
       vulkan-tools \
       wine64 \
-      winetricks \
       xvfb \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL -o /usr/local/bin/winetricks \
+         https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks \
+    && chmod +x /usr/local/bin/winetricks
 
 ENV WINEPREFIX=/wine \
     WINEARCH=win64 \
