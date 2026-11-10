@@ -81,6 +81,20 @@ endif()
 # Interactive window: GLFW for the native window/surface and Dear ImGui for
 # the HUD, timeline and panels. Both are compiled statically into the binary.
 # ---------------------------------------------------------------------------
+if(SECGUI_BUILD_WINDOW AND UNIX AND NOT APPLE)
+	find_package(X11 QUIET)
+	if(NOT X11_Xrandr_INCLUDE_PATH OR NOT X11_Xinerama_INCLUDE_PATH
+	   OR NOT X11_Xcursor_INCLUDE_PATH OR NOT X11_Xi_INCLUDE_PATH)
+		message(WARNING
+			"X11 development headers not found: building without the interactive window. "
+			"Install xorg-dev (Debian/Ubuntu) or libXrandr-devel libXcursor-devel "
+			"libXinerama-devel libXi-devel (Fedora), then re-run CMake.")
+		set(SECGUI_BUILD_WINDOW OFF)
+	else()
+		message(STATUS "Interactive window: GLFW + Dear ImGui")
+	endif()
+endif()
+
 if(SECGUI_BUILD_WINDOW)
 	set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 	set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
