@@ -595,6 +595,15 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 	frame.cameraUp = cameraFrame.up;
 	frame.cameraEye = cameraFrame.eye;
 
+	// Keep billboards at a stable screen size while orbiting and zooming.
+	const double cameraDistance = std::max(1.0, std::sqrt(
+		(cameraFrame.eye.x - cameraFrame.focus.x) * (cameraFrame.eye.x - cameraFrame.focus.x)
+		+ (cameraFrame.eye.y - cameraFrame.focus.y) * (cameraFrame.eye.y - cameraFrame.focus.y)
+		+ (cameraFrame.eye.z - cameraFrame.focus.z) * (cameraFrame.eye.z - cameraFrame.focus.z)));
+	const double fovRadians = camera_.fieldOfViewDeg * kPi / 180.0;
+	const double pixelKm = 2.0 * std::tan(fovRadians * 0.5) * cameraDistance
+	                     / static_cast<double>(std::max(1u, height));
+
 	std::map<std::string, const SatelliteFrame*> byId;
 	for (const SatelliteFrame& satellite : frameData_->satellites) {
 		byId[satellite.id] = &satellite;
@@ -641,13 +650,13 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 			point.z = static_cast<float>(satellite.ecefKm.z);
 			if (satellite.isAp) {
 				point.r = 1.0f; point.g = 0.78f; point.b = 0.25f; point.a = 1.0f;
-				point.sizeKm = 240.0f;
+				point.sizeKm = static_cast<float>(10.0 * pixelKm);
 			} else if (satellite.lifeRemainingS.has_value() && satellite.lifeRemainingS.value() > 0.0) {
 				point.r = 0.35f; point.g = 0.9f; point.b = 0.45f; point.a = 1.0f;
-				point.sizeKm = 170.0f;
+				point.sizeKm = static_cast<float>(8.0 * pixelKm);
 			} else {
 				point.r = 0.55f; point.g = 0.68f; point.b = 0.85f; point.a = 1.0f;
-				point.sizeKm = 130.0f;
+				point.sizeKm = static_cast<float>(6.0 * pixelKm);
 			}
 			frame.points.push_back(point);
 		}
@@ -659,7 +668,7 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 	vessel.y = static_cast<float>(frameData_->vessel.ecefKm.y);
 	vessel.z = static_cast<float>(frameData_->vessel.ecefKm.z);
 	vessel.r = 1.0f; vessel.g = 0.35f; vessel.b = 0.35f; vessel.a = 1.0f;
-	vessel.sizeKm = 190.0f;
+	vessel.sizeKm = static_cast<float>(10.0 * pixelKm);
 	frame.points.push_back(vessel);
 
 	PointInstance observer;
@@ -667,7 +676,7 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 	observer.y = static_cast<float>(frameData_->observer.ecefKm.y);
 	observer.z = static_cast<float>(frameData_->observer.ecefKm.z);
 	observer.r = 0.3f; observer.g = 0.85f; observer.b = 1.0f; observer.a = 1.0f;
-	observer.sizeKm = 160.0f;
+	observer.sizeKm = static_cast<float>(8.0 * pixelKm);
 	frame.points.push_back(observer);
 
 	// Task pulses: interpolate the active hop at the current frame time.
@@ -726,7 +735,7 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 			pulse.g = color[1];
 			pulse.b = color[2];
 			pulse.a = color[3];
-			pulse.sizeKm = 220.0f;
+			pulse.sizeKm = static_cast<float>(12.0 * pixelKm);
 			frame.points.push_back(pulse);
 		}
 	}
