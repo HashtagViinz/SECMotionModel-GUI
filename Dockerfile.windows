@@ -78,7 +78,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && curl -fsSL https://dl.winehq.org/wine-builds/debian/dists/bookworm/winehq-bookworm.sources \
          -o /etc/apt/sources.list.d/winehq-bookworm.sources \
     && apt-get update \
-    && apt-get install -y --no-install-recommends winehq-stable-amd64 \
+    && apt-get install -y --no-install-recommends wine-stable-amd64 \
     && rm -rf /var/lib/apt/lists/* \
     && curl -fsSL -o /usr/local/bin/winetricks \
          https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks \
