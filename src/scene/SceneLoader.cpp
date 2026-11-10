@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <map>
 #include <set>
 #include <stdexcept>
 
@@ -354,6 +355,24 @@ std::vector<TaskEvent> SceneLoader::loadTasks(const SceneMetadata& scene, const 
 	std::stable_sort(events.begin(), events.end(), [](const TaskEvent& left, const TaskEvent& right) {
 		return left.t < right.t;
 	});
+
+	// The trace only carries the task type on the spawn event. Propagate it to
+	// the later events so hop pulses keep the color of their task.
+	std::map<int, std::string> taskTypes;
+	for (const TaskEvent& event : events) {
+		if (!event.type.empty()) {
+			taskTypes[event.task] = event.type;
+		}
+	}
+	for (TaskEvent& event : events) {
+		if (event.type.empty()) {
+			const auto found = taskTypes.find(event.task);
+			if (found != taskTypes.end()) {
+				event.type = found->second;
+			}
+		}
+	}
+
 	logDebug("loaded " + std::to_string(events.size()) + " task events");
 	return events;
 }
