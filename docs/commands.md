@@ -19,6 +19,7 @@ driver, and `--record-script` writes GUI actions back as JSONL.
 | `--frame N`, `--time S` | initial frame/time (windowed) or screenshot frame/time |
 | `--width N`, `--height N` | screenshot size, default 1280x720 |
 | `--window-frames N` | auto-close the interactive window after N frames |
+| `--play` | start the windowed timeline immediately |
 | `--backend NAME` | `auto`, `vulkan`, `d3d12`, `d3d11`, `metal`, `opengl`, `null` |
 | `--camera MODE` | initial camera: `orbit`, `topdown`, `vessel`, `satellite`, `free` |
 | `--target NAME` | initial camera target entity |

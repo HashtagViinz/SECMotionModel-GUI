@@ -13,6 +13,7 @@ OUT_DIR="${OUT_DIR:-/app/out}"
 export WINEPREFIX="${WINEPREFIX:-/wine}"
 export WINEARCH="${WINEARCH:-win64}"
 export WINEDEBUG="${WINEDEBUG:--all}"
+export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-mscoree,mshtml=}"
 export VK_ICD_FILENAMES="${VK_ICD_FILENAMES:-/usr/share/vulkan/icd.d/lvp_icd.x86_64.json}"
 
 mkdir -p "$OUT_DIR"
@@ -31,18 +32,37 @@ if [ -z "$WINE_BIN" ]; then
 fi
 echo "wine binary: $WINE_BIN"
 echo "winepath: $(command -v winepath 2>/dev/null || echo none)"
-echo "xvfb-run: $(command -v xvfb-run 2>/dev/null || echo none)"
+
+# Use a single Xvfb for the whole script. Starting a second `xvfb-run` right
+# after the headless run is racy under Wine: the new server may not be ready
+# and Wine reports "no driver could be loaded".
+XVFB_PID=""
+if [ -z "${DISPLAY:-}" ]; then
+  DISPLAY_NUMBER=99
+  while [ -e "/tmp/.X${DISPLAY_NUMBER}-lock" ]; do
+    DISPLAY_NUMBER=$((DISPLAY_NUMBER + 1))
+  done
+  Xvfb ":${DISPLAY_NUMBER}" -screen 0 1280x720x24 -nolisten tcp >/tmp/xvfb.log 2>&1 &
+  XVFB_PID=$!
+  export DISPLAY=":${DISPLAY_NUMBER}"
+  sleep 1
+fi
+cleanup() {
+  if [ -n "$XVFB_PID" ]; then
+    kill "$XVFB_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
+echo "display: $DISPLAY"
 
 run_wine() {
-  if [ -z "${DISPLAY:-}" ] && command -v xvfb-run >/dev/null 2>&1; then
-    xvfb-run -a "$WINE_BIN" "$@"
-  else
-    "$WINE_BIN" "$@"
-  fi
+  timeout "${WINE_TIMEOUT:-300}" "$WINE_BIN" "$@"
 }
 
 echo "wine: $("$WINE_BIN" --version 2>/dev/null || echo unknown)"
-run_wine wineboot -u >/dev/null 2>&1 || true
+# Do not run `wineboot -u` explicitly: Wine 11 initializes the prefix on the
+# first app launch. The explicit wineboot path was observed to hang under
+# Xvfb with WINEDLLOVERRIDES, while the automatic path is reliable.
 
 # Convert Unix paths to Windows paths when winepath is available, so the
 # application sees valid paths regardless of the current drive mapping.
@@ -60,11 +80,8 @@ OUT_WIN="$(to_windows_path "$OUT_DIR")"
 
 echo "--- wine dll diagnostics"
 find /usr -iname '*d3dcompiler*' 2>/dev/null | head -20 || true
-if ! find /usr -iname '*d3dcompiler_47*' 2>/dev/null | grep -q .; then
-  echo "d3dcompiler_47 not found in the Wine prefix, trying winetricks"
-  winetricks -q d3dcompiler_47 >/tmp/winetricks.log 2>&1 || true
-  tail -5 /tmp/winetricks.log || true
-fi
+# The Vulkan backend compiles WGSL through naga and does not need
+# d3dcompiler_47; do not install redistributables in CI.
 
 set -x
 set +e
@@ -89,4 +106,17 @@ if [ ! -s "$PNG" ]; then
 fi
 
 file "$PNG"
+
+echo "--- windowed smoke test (Xvfb + Wine Win32 surface)"
+set +e
+run_wine "$APP" --backend vulkan --strict \
+  --scene "$SCENE_WIN" \
+  --window-frames 60 > /tmp/wine-window.log 2>&1
+WINDOW_STATUS=$?
+set -e
+cat /tmp/wine-window.log
+if [ "$WINDOW_STATUS" -ne 0 ]; then
+  echo "error: windowed smoke test failed with status $WINDOW_STATUS" >&2
+  exit "$WINDOW_STATUS"
+fi
 echo "windows smoke test passed"

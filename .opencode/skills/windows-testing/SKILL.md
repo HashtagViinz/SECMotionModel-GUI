@@ -34,10 +34,16 @@ Forbidden imports: `wgpu_native.dll`, `libgcc_s_seh-1.dll`,
 x86_64-w64-mingw32-objdump -p dist/secmotion-gui.exe | grep 'DLL Name' | sort -u
 ```
 
-Allowed imports are Windows system DLLs only (kernel32, user32, advapi32,
-ws2_32, bcrypt, ntdll, opengl32, propsys, runtimeobject, d3d12, dxgi, ...).
-If a mingw/wgpu DLL appears, the build is rejected: fix the link instead of
-shipping the DLL next to the exe.
+Use the `sed -n 's/^[[:space:]]*DLL Name: //p'` form in scripts and assert the
+result is non-empty: an awk field match on the MinGW objdump output once
+produced an empty import list, which made the forbidden-DLL check pass
+vacuously.
+
+Allowed imports are Windows system DLLs only (kernel32, user32, gdi32,
+advapi32, ole32, oleaut32, shell32, ws2_32, bcryptprimitives, ntdll,
+msvcrt, opengl32, propsys, runtimeobject, d3d12, dxgi, d3dcompiler_47,
+api-ms-win-core-*, ...). If a mingw/wgpu DLL appears, the build is rejected:
+fix the link instead of shipping the DLL next to the exe.
 
 Also check: `file dist/secmotion-gui.exe` must report `PE32+ executable (console) x86-64`.
 
@@ -67,6 +73,28 @@ Success criteria:
 3. `out/*.png` exists, is a valid PNG and is not a uniform black image;
 4. no `wgpu_native.dll` was needed at runtime.
 
+The test stage also opens the real GLFW/ImGui window under Xvfb and closes it
+after 60 rendered frames:
+
+```bash
+Xvfb :99 -screen 0 1280x720x24 -nolisten tcp &
+export DISPLAY=:99
+wine /app/secmotion-gui.exe --backend vulkan --strict \
+  --scene /app/examples/minimal/scene.json --window-frames 60
+```
+
+Start a single Xvfb and reuse it for both the headless and windowed runs; two
+consecutive `xvfb-run` calls can race and make Wine report
+`no driver could be loaded`. This exercises the Win32 WebGPU surface creation,
+GLFW and the ImGui overlay, not just the offscreen renderer. If the headless
+path passes but the windowed one fails, report the Wine version and the
+`err:module`/surface error lines.
+
+WineHQ packages need 32-bit support even for a 64-bit prefix: the Dockerfile
+runs `dpkg --add-architecture i386` before installing
+`wine-stable wine-stable-amd64`. Without it apt reports
+`wine-stable-i386 ... is not installable`.
+
 If the adapter is missing:
 - try `--backend vulkan` explicitly;
 - check `vulkaninfo` on the host container sees lavapipe;
@@ -83,6 +111,9 @@ winetricks -q corefonts   # fonts, for readable UI screenshots
 ```
 
 Do not install `vcrun*` "just in case": the exe links the C runtime statically.
+The Vulkan backend compiles WGSL through naga, so `d3dcompiler_47` is not
+needed either. `/opt/wine-stable/bin` is in the image `PATH` so winetricks can
+find `wineserver`.
 
 ## 5. Bottles fallback (manual)
 

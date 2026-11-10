@@ -172,7 +172,12 @@ GpuContext GpuContext::createImpl(const std::string& backendPreference, GLFWwind
 		};
 
 		context.instance.requestAdapter(options, callbackInfo);
+		const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
 		while (!adapterState.done) {
+			if (std::chrono::steady_clock::now() > deadline) {
+				adapterState.error = "timed out while waiting for a WebGPU adapter";
+				break;
+			}
 			context.instance.processEvents();
 			std::this_thread::sleep_for(std::chrono::milliseconds(1));
 		}
@@ -251,7 +256,11 @@ GpuContext GpuContext::createImpl(const std::string& backendPreference, GLFWwind
 	};
 
 	context.adapter.requestDevice(deviceDescriptor, deviceCallback);
+	const auto deviceDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
 	while (!deviceState.done) {
+		if (std::chrono::steady_clock::now() > deviceDeadline) {
+			throw std::runtime_error("timed out while waiting for the WebGPU device");
+		}
 		context.instance.processEvents();
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}

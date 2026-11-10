@@ -1135,22 +1135,25 @@ int Application::runWindowed() {
 	double lastMouseY = 0.0;
 	double lastFrameTime = glfwGetTime();
 
-	const auto runCommand = [&](const std::string& command, const nlohmann::json& payload) {
+	const auto runCommand = [&](const std::string& command, const nlohmann::json& payload) -> bool {
 		try {
 			CommandBus bus(*this);
 			bus.dispatch(command, payload);
 			recordCommand(command, payload);
+			return true;
 		} catch (const std::exception& error) {
 			statusMessage = command + ": " + error.what();
+			return false;
 		}
 	};
 	const auto takeScreenshot = [&]() {
-		runCommand("screenshot", nlohmann::json{
+		if (runCommand("screenshot", nlohmann::json{
 			{"path", "gui_frame_" + std::to_string(currentFrame_) + ".png"},
 			{"width", width},
 			{"height", height},
-		});
-		statusMessage = "screenshot saved to " + args_.outputDir;
+		})) {
+			statusMessage = "screenshot saved to " + args_.outputDir;
+		}
 	};
 
 	logInfo("window ready: " + std::to_string(width) + "x" + std::to_string(height)

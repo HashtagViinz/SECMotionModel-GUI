@@ -41,7 +41,27 @@ Single deterministic screenshot:
 secmotion-gui --headless \
   --scene examples/minimal/scene.json \
   --screenshot out/frame2.png --frame 2 --width 1280 --height 720
+
+# exact time, with the active task hop animated
+secmotion-gui --headless \
+  --scene examples/minimal/scene.json \
+  --screenshot out/pulse.png --time 1.2 --width 1280 --height 720
 ```
+
+Record the interactive session and replay it headless:
+
+```bash
+secmotion-gui --scene examples/minimal/scene.json \
+  --tasks examples/minimal/tasks.jsonl \
+  --record-script out/actions.jsonl
+# ... interact, then close the window ...
+secmotion-gui --headless --strict \
+  --script out/actions.jsonl --output-dir out/replay
+```
+
+Every successful GUI action is written as a JSONL command together with the
+initial `open`, camera, speed and layer state, so the replay reproduces the
+same screenshots.
 
 Validate a scene without a GPU (works in any container):
 
@@ -85,7 +105,7 @@ When the instrumented `--trace-jsonl` mode lands in the simulator, pass that
 file as `--trace` instead: it also records exact hop durations and failures.
 
 Generated data is ignored by git (`examples/generated/`); it can be large
-(457 satellites per frame), so keep it local.
+(760 satellites in the full constellation), so keep it local.
 
 ## Golden screenshots and agent testing
 

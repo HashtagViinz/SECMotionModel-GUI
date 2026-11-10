@@ -48,8 +48,9 @@ RUN cmake -S . -B build-win -G Ninja \
 # The Windows artifact must be statically linked: no mingw or wgpu DLLs.
 RUN set -eux; \
     x86_64-w64-mingw32-objdump -p /secmotion-gui.exe \
-      | awk '$1 == "DLL" && $2 == "Name:" { print $3 }' \
+      | sed -n 's/^[[:space:]]*DLL Name: //p' \
       | sort -u > /secmotion-gui-imports.txt; \
+    test -s /secmotion-gui-imports.txt; \
     cat /secmotion-gui-imports.txt; \
     if grep -Eiq 'wgpu_native\.dll|libgcc_s_seh-1\.dll|libstdc\+\+-6\.dll|libwinpthread-1\.dll' /secmotion-gui-imports.txt; then \
       echo "FATAL: dynamic mingw/wgpu imports found" >&2; \
@@ -58,13 +59,15 @@ RUN set -eux; \
     file /secmotion-gui.exe
 
 # ---------------------------------------------------------------------------
-FROM debian:bookworm-slim AS test
+FROM debian:bookworm-slim AS wine-env
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN dpkg --add-architecture i386 \
+    && apt-get update && apt-get install -y --no-install-recommends \
       cabextract \
       ca-certificates \
       curl \
+      file \
       gnupg \
       libvulkan1 \
       mesa-vulkan-drivers \
@@ -86,7 +89,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 ENV WINEPREFIX=/wine \
     WINEARCH=win64 \
-    WINEDEBUG=-all
+    WINEDEBUG=-all \
+    WINEDLLOVERRIDES=mscoree,mshtml= \
+    PATH="/opt/wine-stable/bin:${PATH}"
+
+FROM wine-env AS test
 
 COPY --from=build /secmotion-gui.exe /app/secmotion-gui.exe
 COPY examples/ /app/examples/

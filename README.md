@@ -48,9 +48,11 @@ statically; Dear ImGui is compiled into the binary). Configure with
 docker build -f Dockerfile.windows --target export --output type=local,dest=dist .
 ```
 
-The resulting `dist/secmotion-gui.exe` is statically linked: it must not import
-`wgpu_native.dll`, `libgcc_s_seh-1.dll`, `libstdc++-6.dll` or
-`libwinpthread-1.dll`. See `.opencode/skills/windows-testing/SKILL.md`.
+The resulting `dist/secmotion-gui.exe` is statically linked and includes the
+interactive GLFW + Dear ImGui window. It must not import `wgpu_native.dll`,
+`libgcc_s_seh-1.dll`, `libstdc++-6.dll` or `libwinpthread-1.dll`. System
+imports such as `D3DCOMPILER_47.dll` and `bcryptprimitives.dll` mean Windows
+10/11 is required. See `.opencode/skills/windows-testing/SKILL.md`.
 
 ### macOS
 
