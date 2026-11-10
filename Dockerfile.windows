@@ -69,6 +69,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       vulkan-tools \
       wine \
       wine64 \
+      xauth \
       xvfb \
     && rm -rf /var/lib/apt/lists/* \
     && curl -fsSL -o /usr/local/bin/winetricks \
