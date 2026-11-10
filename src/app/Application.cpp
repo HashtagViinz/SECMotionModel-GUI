@@ -820,6 +820,8 @@ nlohmann::json Application::commandCamera(const nlohmann::json& payload) {
 			camera_.distanceKm = 4500.0;
 		} else if (camera_.mode == "satellite") {
 			camera_.distanceKm = 1500.0;
+		} else if (camera_.mode == "orbit" || camera_.mode == "free") {
+			camera_.distanceKm = 18000.0;
 		}
 	}
 	if (payload.contains("yaw_deg") && payload["yaw_deg"].is_number()) {
@@ -1268,7 +1270,7 @@ int Application::runWindowed() {
 		if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_K)) {
 			showPalette = !showPalette;
 		}
-		if (!io.WantTextInput) {
+		if (!io.WantTextInput && !io.KeyCtrl) {
 			if (ImGui::IsKeyPressed(ImGuiKey_Space)) {
 				runCommand(playing_ ? "pause" : "play", nlohmann::json::object());
 			}
@@ -1367,8 +1369,8 @@ int Application::runWindowed() {
 		ImGui::End();
 
 		if (showLayers) {
-			ImGui::SetNextWindowPos(ImVec2(static_cast<float>(width) - 250.0f, 16.0f),
-			                        ImGuiCond_FirstUseEver);
+			ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 270.0f, 16.0f),
+			                        ImGuiCond_Always);
 			if (ImGui::Begin("Layers", &showLayers, ImGuiWindowFlags_AlwaysAutoResize)) {
 				const std::pair<const char*, const char*> layerNames[] = {
 					{"grid", "Earth grid"},
@@ -1467,9 +1469,9 @@ int Application::runWindowed() {
 		}
 
 		ImGui::SetNextWindowPos(
-			ImVec2(16.0f, io.DisplaySize.y - 112.0f), ImGuiCond_FirstUseEver);
+			ImVec2(16.0f, io.DisplaySize.y - 112.0f), ImGuiCond_Always);
 		ImGui::SetNextWindowSize(
-			ImVec2(std::max(520.0f, io.DisplaySize.x - 32.0f), 96.0f), ImGuiCond_FirstUseEver);
+			ImVec2(std::max(320.0f, io.DisplaySize.x - 32.0f), 96.0f), ImGuiCond_Always);
 		if (ImGui::Begin("Timeline", nullptr, ImGuiWindowFlags_NoCollapse)) {
 			if (ImGui::Button(playing_ ? "Pause" : "Play")) {
 				runCommand(playing_ ? "pause" : "play", nlohmann::json::object());
