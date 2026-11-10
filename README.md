@@ -88,6 +88,7 @@ secgui --naval --time 10 --camera vessel
 secgui --config data/naval_configurations_AP_optimal.json
 secgui --config data/naval_configurations_AP_optimal.json \
   --trace /tmp/opencode/naval-tasks.jsonl
+secgui --run result/naval/IN_NETWORK/optimal
 secgui path/scene.json path/tasks.jsonl # explicit scene and tasks
 secgui --help                           # full usage
 ```
@@ -98,6 +99,11 @@ opens the result directly; the first run takes about 20 s and is cached under
 The core configuration already contains the per-step TLEs, access points,
 elevation, range and neighbors; the exporter propagates the TLEs to ECEF and
 writes the GUI frames. The GUI itself does no orbital mechanics.
+
+`--run` exports a simulation directory containing `gui_run.json`,
+`gui_state.csv` and `gui_links.csv`. It adds the real per-satellite load
+(`loads.jsonl`) and the real forward events (`traffic.jsonl`) to the scene.
+Satellites that are no longer in a frame are dropped from the load data.
 
 The launcher prefers `SECGUI_BIN`, then the newest AppImage in `dist/`, then
 `build-gui/secmotion-gui`. It falls back to `APPIMAGE_EXTRACT_AND_RUN=1` when

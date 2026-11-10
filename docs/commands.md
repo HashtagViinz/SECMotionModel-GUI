@@ -65,7 +65,7 @@ Codes: `PARSE_ERROR`, `MISSING_CMD`, `UNKNOWN_COMMAND`, `MISSING_FIELD`,
 | `step` | move by `delta` frames (default 1) | `<` / `>` buttons | `←` / `→` |
 | `speed` | playback speed | timeline slider | `[` / `]` |
 | `camera` | mode, target, distance | telemetry camera combo | `1`–`5` |
-| `layer` | show/hide a layer | Layers panel | `G` `I` `D` `O` `K` |
+| `layer` | show/hide a layer (`load`, `traffic`, …) | Layers panel | `G` `I` `D` `O` `K` |
 | `select` | select an entity | click satellite/vessel/observer | — |
 | `reset` | back to frame 0, paused | Reset button | `R` |
 | `state` | current state as JSON | HUD + command palette | always visible |
@@ -78,6 +78,22 @@ The windowed interface dispatches every widget action through the same
 successful action is appended to `PATH` as a JSONL command, including the
 initial `open`, camera, speed and layer state; replaying that file with
 `--headless --script` reproduces the same screenshots.
+
+## Live telemetry layers (scene v2)
+
+A v2 manifest can reference `loads.jsonl` and `traffic.jsonl`. They are loaded
+automatically; no extra CLI flag is needed.
+
+- `load` colors each satellite by
+  `max((cpu_queue+cpu_service)/cpu_capacity, (net_queue+net_service)/net_capacity)`.
+  The color goes from pale blue (idle) through yellow and red to dark red/black
+  (saturated). The telemetry panel shows the raw queues and energy.
+- `traffic` colors ISL links by recent traffic and draws a moving wave from
+  source to destination for each active forward. The wave duration is stretched
+  to at least 0.35 s when the real transmission is shorter, so it remains
+  visible at 60 FPS.
+- Both layers can be toggled from the Layers panel or with
+  `--layer load=off` / `--layer traffic=off`.
 
 Mouse: drag to orbit, wheel to zoom, click to select. Panels: `L` toggles
 Layers, `T` toggles Telemetry, `Ctrl+K` toggles the JSON command palette.

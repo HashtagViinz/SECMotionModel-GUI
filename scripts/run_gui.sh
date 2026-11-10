@@ -31,6 +31,7 @@ With no arguments, opens the minimal example scene.
   --naval            use the exported 760-satellite naval scene
   --config <json>    export a core configurations JSON and open it
   --trace <jsonl>    optional task trace to use with --config
+  --run <dir>        export a simulation run with load and traffic telemetry
   -h, --help         show this help
 
 Any other argument is forwarded to secmotion-gui. A bare first argument is
@@ -44,6 +45,7 @@ Examples:
   secgui --config data/naval_configurations_AP_optimal.json
   secgui --config data/naval_configurations_AP_optimal.json \
     --trace /tmp/opencode/naval-tasks.jsonl
+  secgui --run result/naval/IN_NETWORK/optimal
   secgui examples/minimal/scene.json
   secgui --scene /path/manifest.json --tasks /path/tasks.jsonl --camera vessel
   secgui --naval --time 10 --camera vessel --target V-ATLANTIC
@@ -85,7 +87,7 @@ find_core_root() {
 resolve_input_path() {
 	local path="$1" root="$2"
 	if [[ "$path" != /* ]]; then
-		if [ -f "$path" ]; then
+		if [ -e "$path" ]; then
 			path="$(cd "$(dirname "$path")" && pwd)/$(basename "$path")"
 		else
 			path="$root/$path"
@@ -129,6 +131,40 @@ export_config_scene() {
 	printf '%s\n' "$cache"
 }
 
+export_run_scene() {
+	local run_dir="$1" core="$2"
+	local meta="$run_dir/gui_run.json"
+	local state="$run_dir/gui_state.csv" links="$run_dir/gui_links.csv"
+	local stamp cache_root cache tmp
+	if [ ! -f "$meta" ]; then
+		echo "error: $meta not found" >&2
+		return 1
+	fi
+	stamp="$(stat -c '%Y-%s' "$meta")-$(stat -c '%Y-%s' "$state" 2>/dev/null || echo 0)-$(stat -c '%Y-%s' "$links" 2>/dev/null || echo 0)"
+	cache_root="${SECGUI_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/secgui}/runs"
+	cache="$cache_root/$(basename "$(dirname "$run_dir")")-$(basename "$run_dir")-$(printf '%s' "$run_dir|$stamp" | sha256sum | cut -c1-12)"
+
+	if [ ! -f "$cache/manifest.json" ] || [ ! -f "$cache/.stamp" ] \
+		|| [ "$(cat "$cache/.stamp")" != "$stamp" ]; then
+		tmp="$cache.tmp.$$"
+		rm -rf "$tmp"
+		mkdir -p "$cache_root"
+		echo "secgui: exporting run $run_dir -> $cache" >&2
+		if ! (cd "$core" && python3 tools/export_gui_scene.py \
+			--run-dir "$run_dir" --out "$tmp") 1>&2; then
+			rm -rf "$tmp"
+			echo "secgui: export failed" >&2
+			return 1
+		fi
+		printf '%s\n' "$stamp" >"$tmp/.stamp"
+		rm -rf "$cache"
+		mv "$tmp" "$cache"
+	else
+		echo "secgui: using cached run $cache" >&2
+	fi
+	printf '%s\n' "$cache"
+}
+
 find_binary() {
 	if [ -n "${SECGUI_BIN:-}" ] && [ -x "$SECGUI_BIN" ]; then
 		printf '%s\n' "$SECGUI_BIN"
@@ -137,12 +173,13 @@ find_binary() {
 	local appimage
 	appimage="$(find "$REPO/dist" -maxdepth 1 -type f -name 'SECMotionModel-GUI-*-x86_64.AppImage' -printf '%T@ %p\n' 2>/dev/null \
 		| sort -n | tail -n 1 | cut -d' ' -f2-)"
-	if [ -n "$appimage" ] && [ -x "$appimage" ]; then
-		printf '%s\n' "$appimage"
+	local build="$REPO/build-gui/secmotion-gui"
+	if [ -x "$build" ] && { [ -z "$appimage" ] || [ "$build" -nt "$appimage" ]; }; then
+		printf '%s\n' "$build"
 		return 0
 	fi
-	if [ -x "$REPO/build-gui/secmotion-gui" ]; then
-		printf '%s\n' "$REPO/build-gui/secmotion-gui"
+	if [ -n "$appimage" ] && [ -x "$appimage" ]; then
+		printf '%s\n' "$appimage"
 		return 0
 	fi
 	return 1
@@ -152,6 +189,7 @@ mode="minimal"
 filtered=()
 config_path=""
 trace_path=""
+run_path=""
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--minimal) mode="minimal"; shift ;;
@@ -162,6 +200,9 @@ while [ $# -gt 0 ]; do
 		--trace)
 			[ $# -ge 2 ] || { echo "error: --trace requires a path" >&2; exit 2; }
 			trace_path="$2"; shift 2 ;;
+		--run)
+			[ $# -ge 2 ] || { echo "error: --run requires a directory" >&2; exit 2; }
+			run_path="$2"; shift 2 ;;
 		-h|--help) usage; exit 0 ;;
 		*) filtered+=("$1"); shift ;;
 	esac
@@ -170,6 +211,34 @@ done
 if [ -n "$trace_path" ] && [ -z "$config_path" ]; then
 	echo "error: --trace requires --config" >&2
 	exit 2
+fi
+
+if [ -n "$run_path" ]; then
+	if [ -n "$config_path" ] || [ "$mode" = "naval" ]; then
+		echo "error: --run cannot be combined with --config or --naval" >&2
+		exit 2
+	fi
+	if [ ${#filtered[@]} -gt 0 ] && [[ "${filtered[0]}" != -* ]]; then
+		echo "error: pass either --run or a scene path, not both" >&2
+		exit 2
+	fi
+	for arg in "${filtered[@]}"; do
+		if [ "$arg" = "--scene" ]; then
+			echo "error: pass either --run or --scene, not both" >&2
+			exit 2
+		fi
+	done
+	core="$(find_core_root)" || {
+		echo "error: core repository not found; cannot run tools/export_gui_scene.py" >&2
+		exit 1
+	}
+	run_path="$(resolve_input_path "$run_path" "$core")"
+	if [ ! -d "$run_path" ]; then
+		echo "error: run directory not found: $run_path" >&2
+		exit 1
+	fi
+	scene_dir="$(export_run_scene "$run_path" "$core")" || exit 1
+	filtered=(--scene "$scene_dir/manifest.json" "${filtered[@]}")
 fi
 
 if [ -n "$config_path" ]; then

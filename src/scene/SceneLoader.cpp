@@ -45,6 +45,30 @@ std::string stringField(const nlohmann::json& object, const char* key, const std
 	return value.get<std::string>();
 }
 
+std::vector<nlohmann::json> readJsonLines(const std::filesystem::path& path, const char* label) {
+	std::vector<nlohmann::json> lines;
+	std::ifstream input(path);
+	if (!input) {
+		throw std::runtime_error(std::string("cannot open ") + label + ": " + path.string());
+	}
+	std::string line;
+	int lineNumber = 0;
+	while (std::getline(input, line)) {
+		++lineNumber;
+		if (line.empty()) {
+			continue;
+		}
+		try {
+			lines.push_back(nlohmann::json::parse(line));
+		} catch (const nlohmann::json::exception& error) {
+			throw std::runtime_error(std::string("invalid ") + label + " JSON in "
+			                         + path.string() + ":" + std::to_string(lineNumber)
+			                         + ": " + error.what());
+		}
+	}
+	return lines;
+}
+
 } // namespace
 
 SceneMetadata SceneLoader::load(const std::filesystem::path& path) {
@@ -72,8 +96,8 @@ SceneMetadata SceneLoader::load(const std::filesystem::path& path) {
 	meta.manifestPath = manifestPath;
 	meta.rootDir = manifestPath.parent_path();
 	meta.version = doc.value("version", 1);
-	if (meta.version != 1) {
-		throw std::runtime_error("unsupported scene version " + std::to_string(meta.version) + " (expected 1)");
+	if (meta.version != 1 && meta.version != 2) {
+		throw std::runtime_error("unsupported scene version " + std::to_string(meta.version) + " (expected 1 or 2)");
 	}
 
 	meta.t0 = stringField(doc, "t0", "");
@@ -129,6 +153,20 @@ SceneMetadata SceneLoader::load(const std::filesystem::path& path) {
 	}
 
 	meta.tasksPath = stringField(doc, "tasks", "");
+	meta.loadsPath = stringField(doc, "loads", "");
+	meta.trafficPath = stringField(doc, "traffic", "");
+	if (doc.contains("load") && doc.at("load").is_object()) {
+		const auto& load = doc.at("load");
+		meta.cpuCapacity = numberField(load, "cpu_capacity", 5.0);
+		meta.netCapacity = numberField(load, "net_capacity", 5.0);
+	}
+	if (doc.contains("default_layers") && doc.at("default_layers").is_object()) {
+		for (const auto& entry : doc.at("default_layers").items()) {
+			if (entry.value().is_boolean()) {
+				meta.defaultLayers[entry.key()] = entry.value().get<bool>();
+			}
+		}
+	}
 
 	logDebug("loaded scene manifest: " + manifestPath.string()
 	         + " frames=" + std::to_string(meta.frameCount)
@@ -374,6 +412,82 @@ std::vector<TaskEvent> SceneLoader::loadTasks(const SceneMetadata& scene, const 
 	}
 
 	logDebug("loaded " + std::to_string(events.size()) + " task events");
+	return events;
+}
+
+std::vector<LoadSample> SceneLoader::loadLoads(const SceneMetadata& scene) {
+	if (scene.loadsPath.empty()) {
+		return {};
+	}
+	const std::filesystem::path path = scene.rootDir / scene.loadsPath;
+	if (!std::filesystem::exists(path)) {
+		logWarn("load samples not found: " + path.string());
+		return {};
+	}
+
+	std::vector<LoadSample> samples;
+	for (const nlohmann::json& document : readJsonLines(path, "loads")) {
+		LoadSample sample;
+		sample.t = document.value("t", 0.0);
+		sample.frame = document.value("frame", 0);
+		if (!document.contains("satellites") || !document.at("satellites").is_array()) {
+			continue;
+		}
+		for (const auto& item : document.at("satellites")) {
+			const std::string id = stringOr(item, "id", "");
+			if (id.empty()) {
+				continue;
+			}
+			LoadState state;
+			state.cpuQueue = item.value("cpu_queue", 0);
+			state.cpuService = item.value("cpu_service", 0);
+			state.netQueue = item.value("net_queue", 0);
+			state.netService = item.value("net_service", 0);
+			state.completed = item.value("completed", 0);
+			state.energyJ = item.value("energy_j", 0.0);
+			state.energyReservedJ = item.value("energy_reserved_j", 0.0);
+			sample.satellites[id] = state;
+		}
+		samples.push_back(std::move(sample));
+	}
+	std::stable_sort(samples.begin(), samples.end(), [](const LoadSample& left, const LoadSample& right) {
+		return left.t < right.t;
+	});
+	logDebug("loaded " + std::to_string(samples.size()) + " load samples");
+	return samples;
+}
+
+std::vector<TrafficEvent> SceneLoader::loadTraffic(const SceneMetadata& scene) {
+	if (scene.trafficPath.empty()) {
+		return {};
+	}
+	const std::filesystem::path path = scene.rootDir / scene.trafficPath;
+	if (!std::filesystem::exists(path)) {
+		logWarn("traffic events not found: " + path.string());
+		return {};
+	}
+
+	std::vector<TrafficEvent> events;
+	for (const nlohmann::json& document : readJsonLines(path, "traffic")) {
+		TrafficEvent event;
+		event.t0 = document.value("t0", 0.0);
+		event.t1 = document.value("t1", event.t0);
+		event.from = stringOr(document, "from", "");
+		event.to = stringOr(document, "to", "");
+		event.task = document.value("task", 0);
+		event.sizeMb = document.value("size_mb", 0.0);
+		event.bandwidthMbps = document.value("bandwidth_mbps", 0.0);
+		event.durationS = document.value("duration_s", event.t1 - event.t0);
+		event.kind = stringOr(document, "kind", "");
+		event.algorithm = stringOr(document, "algo", "");
+		if (!event.from.empty() && !event.to.empty()) {
+			events.push_back(std::move(event));
+		}
+	}
+	std::stable_sort(events.begin(), events.end(), [](const TrafficEvent& left, const TrafficEvent& right) {
+		return left.t0 < right.t0;
+	});
+	logDebug("loaded " + std::to_string(events.size()) + " traffic events");
 	return events;
 }
 

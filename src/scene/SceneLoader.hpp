@@ -3,6 +3,7 @@
 #include "scene/FrameData.hpp"
 
 #include <filesystem>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,11 @@ struct SceneMetadata {
 	int frameCount = 0;
 	std::string framesPattern;
 	std::string tasksPath;
+	std::string loadsPath;
+	std::string trafficPath;
+	double cpuCapacity = 5.0;
+	double netCapacity = 5.0;
+	std::map<std::string, bool> defaultLayers;
 	std::filesystem::path rootDir;    // directory containing the manifest
 	std::filesystem::path manifestPath;
 
@@ -48,6 +54,10 @@ public:
 	// Returns an empty vector when no trace file is configured.
 	static std::vector<TaskEvent> loadTasks(const SceneMetadata& scene,
 	                                        const std::string& overridePath = {});
+
+	// Optional v2 telemetry. Returns empty vectors for v1 scenes.
+	static std::vector<LoadSample> loadLoads(const SceneMetadata& scene);
+	static std::vector<TrafficEvent> loadTraffic(const SceneMetadata& scene);
 };
 
 } // namespace secgui

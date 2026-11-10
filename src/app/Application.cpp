@@ -207,6 +207,54 @@ std::array<float, 4> taskColor(const std::string& type) {
 	return {1.00f, 1.00f, 1.00f, 1.0f};
 }
 
+std::array<float, 3> mixColor(const std::array<float, 3>& a, const std::array<float, 3>& b,
+                              float t) {
+	return {
+		a[0] + (b[0] - a[0]) * t,
+		a[1] + (b[1] - a[1]) * t,
+		a[2] + (b[2] - a[2]) * t,
+	};
+}
+
+std::array<float, 4> loadColor(double load) {
+	static const std::array<float, 3> low{0.65f, 0.85f, 1.00f};
+	static const std::array<float, 3> mid{1.00f, 0.85f, 0.25f};
+	static const std::array<float, 3> high{1.00f, 0.25f, 0.10f};
+	static const std::array<float, 3> saturated{0.08f, 0.02f, 0.02f};
+	const float t = static_cast<float>(std::clamp(load, 0.0, 1.0));
+	if (t < 0.5f) {
+		const auto c = mixColor(low, mid, t / 0.5f);
+		return {c[0], c[1], c[2], 1.0f};
+	}
+	if (t < 0.8f) {
+		const auto c = mixColor(mid, high, (t - 0.5f) / 0.3f);
+		return {c[0], c[1], c[2], 1.0f};
+	}
+	const auto c = mixColor(high, saturated, (t - 0.8f) / 0.2f);
+	return {c[0], c[1], c[2], 1.0f};
+}
+
+std::array<float, 4> trafficColor(double load) {
+	static const std::array<float, 3> low{0.20f, 0.45f, 0.80f};
+	static const std::array<float, 3> mid{1.00f, 0.75f, 0.20f};
+	static const std::array<float, 3> high{1.00f, 0.20f, 0.10f};
+	const float t = static_cast<float>(std::clamp(load, 0.0, 1.0));
+	const auto c = t < 0.6f
+		? mixColor(low, mid, t / 0.6f)
+		: mixColor(mid, high, (t - 0.6f) / 0.4f);
+	return {c[0], c[1], c[2], 0.9f};
+}
+
+double satelliteLoad(const LoadState& state, double cpuCapacity, double netCapacity) {
+	const double cpu = (state.cpuQueue + state.cpuService) / std::max(1.0, cpuCapacity);
+	const double net = (state.netQueue + state.netService) / std::max(1.0, netCapacity);
+	return std::max(cpu, net);
+}
+
+std::string edgeKey(const std::string& a, const std::string& b) {
+	return a < b ? a + "|" + b : b + "|" + a;
+}
+
 #ifdef SECGUI_WINDOW
 struct ScreenPoint {
 	float x = 0.0f;
@@ -292,6 +340,12 @@ void Application::loadScene(const std::filesystem::path& path) {
 
 	frameData_ = SceneLoader::loadFrame(*scene_, currentFrame_);
 	tasks_ = SceneLoader::loadTasks(*scene_, tasksOverride_);
+	loads_ = SceneLoader::loadLoads(*scene_);
+	traffic_ = SceneLoader::loadTraffic(*scene_);
+	layers_.clear();
+	for (const auto& entry : scene_->defaultLayers) {
+		layers_[entry.first] = entry.second;
+	}
 
 	if (camera_.target.empty() || camera_.target == "V-ATLANTIC") {
 		camera_.target = scene_->terminalName;
@@ -316,6 +370,29 @@ bool Application::layerEnabled(const std::string& name, bool fallback) const {
 		return fallback;
 	}
 	return found->second;
+}
+
+const LoadSample* Application::currentLoadSample() const {
+	const LoadSample* sample = nullptr;
+	for (const LoadSample& candidate : loads_) {
+		if (candidate.t > sceneTimeS_ + 1e-9) {
+			break;
+		}
+		sample = &candidate;
+	}
+	if (sample == nullptr && !loads_.empty()) {
+		sample = &loads_.front();
+	}
+	return sample;
+}
+
+const LoadState* Application::loadFor(const std::string& id) const {
+	const LoadSample* sample = currentLoadSample();
+	if (sample == nullptr) {
+		return nullptr;
+	}
+	const auto found = sample->satellites.find(id);
+	return found == sample->satellites.end() ? nullptr : &found->second;
 }
 
 void Application::reloadFrame() {
@@ -609,6 +686,24 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 		byId[satellite.id] = &satellite;
 	}
 
+	const LoadSample* loadSample = currentLoadSample();
+	const bool loadMode = layerEnabled("load", false) && loadSample != nullptr;
+
+	const bool trafficMode = layerEnabled("traffic", false) && !traffic_.empty();
+	std::map<std::string, double> edgeWeights;
+	double maxEdgeWeight = 0.0;
+	if (trafficMode) {
+		const double window = 2.0;
+		for (const TrafficEvent& event : traffic_) {
+			if (event.kind != "isl" || event.t1 < sceneTimeS_ - window || event.t0 > sceneTimeS_) {
+				continue;
+			}
+			double& weight = edgeWeights[edgeKey(event.from, event.to)];
+			weight += event.sizeMb;
+			maxEdgeWeight = std::max(maxEdgeWeight, weight);
+		}
+	}
+
 	// Inter-satellite links, de-duplicated.
 	if (layerEnabled("isl", true)) {
 		for (const SatelliteFrame& satellite : frameData_->satellites) {
@@ -620,8 +715,68 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 				if (found == byId.end()) {
 					continue;
 				}
-				addLine(frame.lines, satellite.ecefKm, found->second->ecefKm, 0.30f, 0.62f, 1.0f, 0.55f);
+				float r = 0.30f, g = 0.62f, b = 1.0f, a = 0.55f;
+				if (trafficMode && maxEdgeWeight > 0.0) {
+					const auto weight = edgeWeights.find(edgeKey(satellite.id, neighbor.id));
+					if (weight != edgeWeights.end()) {
+						const auto color = trafficColor(weight->second / maxEdgeWeight);
+						r = color[0]; g = color[1]; b = color[2]; a = color[3];
+					}
+				}
+				addLine(frame.lines, satellite.ecefKm, found->second->ecefKm, r, g, b, a);
 			}
+		}
+	}
+
+	// Active forwards: a short bright segment travelling source -> target.
+	if (trafficMode) {
+		std::vector<const TrafficEvent*> active;
+		for (const TrafficEvent& event : traffic_) {
+			const double visualDuration = std::max(event.durationS, 0.35);
+			if (event.kind == "isl" && event.t0 <= sceneTimeS_
+				&& sceneTimeS_ <= event.t0 + visualDuration) {
+				active.push_back(&event);
+			}
+		}
+		std::sort(active.begin(), active.end(), [](const TrafficEvent* left, const TrafficEvent* right) {
+			return left->sizeMb > right->sizeMb;
+		});
+		if (active.size() > 80) {
+			active.resize(80);
+		}
+		for (const TrafficEvent* event : active) {
+			const auto from = byId.find(event->from);
+			const auto to = byId.find(event->to);
+			if (from == byId.end() || to == byId.end()) {
+				continue;
+			}
+			const double visualDuration = std::max(event->durationS, 0.35);
+			const double progress = std::clamp(
+				(sceneTimeS_ - event->t0) / visualDuration, 0.0, 1.0);
+			const int segments = 12;
+			for (int i = 0; i < segments; ++i) {
+				const double start = static_cast<double>(i) / segments;
+				const double end = static_cast<double>(i + 1) / segments;
+				const double centre = (start + end) * 0.5;
+				const double distance = (centre - progress) / 0.25;
+				const float intensity = static_cast<float>(std::exp(-distance * distance));
+				if (intensity < 0.08f) {
+					continue;
+				}
+				addLine(frame.lines,
+				        lerp(from->second->ecefKm, to->second->ecefKm, start),
+				        lerp(from->second->ecefKm, to->second->ecefKm, end),
+				        1.0f, 0.65f + 0.3f * intensity, 0.15f + 0.45f * intensity,
+				        0.25f + 0.75f * intensity);
+			}
+			const Vec3 head = lerp(from->second->ecefKm, to->second->ecefKm, progress);
+			PointInstance marker;
+			marker.x = static_cast<float>(head.x);
+			marker.y = static_cast<float>(head.y);
+			marker.z = static_cast<float>(head.z);
+			marker.r = 1.0f; marker.g = 0.9f; marker.b = 0.3f; marker.a = 0.95f;
+			marker.sizeKm = static_cast<float>(5.0 * pixelKm);
+			frame.points.push_back(marker);
 		}
 	}
 
@@ -648,7 +803,28 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 			point.x = static_cast<float>(satellite.ecefKm.x);
 			point.y = static_cast<float>(satellite.ecefKm.y);
 			point.z = static_cast<float>(satellite.ecefKm.z);
-			if (satellite.isAp) {
+
+			const LoadState* loadState = nullptr;
+			if (loadSample != nullptr) {
+				const auto found = loadSample->satellites.find(satellite.id);
+				if (found != loadSample->satellites.end()) {
+					loadState = &found->second;
+				}
+			}
+
+			if (loadMode && loadState != nullptr) {
+				const double load = satelliteLoad(*loadState, scene_->cpuCapacity, scene_->netCapacity);
+				const auto color = loadColor(load);
+				point.r = color[0]; point.g = color[1]; point.b = color[2]; point.a = color[3];
+				point.sizeKm = static_cast<float>(
+					(8.0 + std::min(load, 1.0) * 18.0 + (satellite.isAp ? 2.0 : 0.0)) * pixelKm);
+				if (load > 0.5) {
+					PointInstance halo = point;
+					halo.r = 1.0f; halo.g = 0.55f; halo.b = 0.15f; halo.a = 0.8f;
+					halo.sizeKm = point.sizeKm + static_cast<float>(3.0 * pixelKm);
+					frame.points.push_back(halo);
+				}
+			} else if (satellite.isAp) {
 				point.r = 1.0f; point.g = 0.78f; point.b = 0.25f; point.a = 1.0f;
 				point.sizeKm = static_cast<float>(10.0 * pixelKm);
 			} else if (satellite.lifeRemainingS.has_value() && satellite.lifeRemainingS.value() > 0.0) {
@@ -899,6 +1075,8 @@ nlohmann::json Application::commandState(const nlohmann::json& payload) {
 		result["access_points"] = accessPoints;
 	}
 	result["tasks"] = tasks_.size();
+	result["load_samples"] = loads_.size();
+	result["traffic_events"] = traffic_.size();
 	return result;
 }
 
@@ -1089,7 +1267,7 @@ int Application::runWindowed() {
 			{"pitch_deg", camera_.pitchDeg},
 		});
 		recordCommand("speed", nlohmann::json{{"value", speed_}});
-		for (const char* name : {"grid", "isl", "dome", "route", "satellites", "tasks"}) {
+		for (const char* name : {"grid", "isl", "dome", "route", "satellites", "load", "traffic", "tasks"}) {
 			recordCommand("layer", nlohmann::json{
 				{"name", name}, {"visible", layerEnabled(name, true)}});
 		}
@@ -1351,6 +1529,23 @@ int Application::runWindowed() {
 			ImGui::Text("Draw    %zu lines, %zu points", renderer_.lastLineCount(),
 			            renderer_.lastPointCount());
 			ImGui::Text("Tasks   %zu", tasks_.size());
+			if (const LoadSample* sample = currentLoadSample()) {
+				double maxLoad = 0.0, sumLoad = 0.0;
+				for (const auto& entry : sample->satellites) {
+					const double load = satelliteLoad(
+						entry.second, scene_->cpuCapacity, scene_->netCapacity);
+					maxLoad = std::max(maxLoad, load);
+					sumLoad += load;
+				}
+				if (!sample->satellites.empty()) {
+					ImGui::Text("Load    max %.0f%%  avg %.0f%%",
+					            maxLoad * 100.0,
+					            (sumLoad / sample->satellites.size()) * 100.0);
+				}
+			}
+			if (!traffic_.empty()) {
+				ImGui::Text("Traffic %zu events", traffic_.size());
+			}
 			ImGui::Text("Camera  %s -> %s", camera_.mode.c_str(), camera_.target.c_str());
 			ImGui::Text("GPU     %s / %s", gpu_.adapterName.c_str(), gpu_.backendName.c_str());
 			ImGui::Separator();
@@ -1378,14 +1573,41 @@ int Application::runWindowed() {
 					{"dome", "Visibility dome"},
 					{"route", "Vessel route"},
 					{"satellites", "Satellites"},
+					{"load", "Load heatmap"},
+					{"traffic", "Link traffic"},
 					{"tasks", "Task pulses"},
 				};
 				for (const auto& entry : layerNames) {
-					bool visible = layerEnabled(entry.first, true);
+					const bool liveLayer = std::string(entry.first) == "load"
+						|| std::string(entry.first) == "traffic";
+					bool visible = layerEnabled(entry.first, !liveLayer);
 					if (ImGui::Checkbox(entry.second, &visible)) {
 						runCommand("layer", nlohmann::json{
 							{"name", entry.first}, {"visible", visible}});
 					}
+				}
+				if (layerEnabled("load", false) && !loads_.empty()) {
+					ImGui::Separator();
+					ImGui::TextDisabled("Load 0% -> 100%");
+					ImDrawList* draw = ImGui::GetWindowDrawList();
+					const ImVec2 origin = ImGui::GetCursorScreenPos();
+					const float width = 180.0f;
+					const float height = 10.0f;
+					for (int i = 0; i < 24; ++i) {
+						const auto color = loadColor(static_cast<double>(i) / 23.0);
+						draw->AddRectFilled(
+							ImVec2(origin.x + width * i / 24.0f, origin.y),
+							ImVec2(origin.x + width * (i + 1) / 24.0f, origin.y + height),
+							IM_COL32(static_cast<int>(color[0] * 255),
+							         static_cast<int>(color[1] * 255),
+							         static_cast<int>(color[2] * 255), 255));
+					}
+					ImGui::Dummy(ImVec2(width, height));
+					ImGui::TextDisabled("0%%        50%%       100%%");
+				}
+				if (layerEnabled("traffic", false) && !traffic_.empty()) {
+					ImGui::TextDisabled("Traffic: blue idle -> red busy");
+					ImGui::TextDisabled("Yellow wave = active forward");
 				}
 				ImGui::Separator();
 				ImGui::TextDisabled("Shortcuts");
@@ -1416,6 +1638,15 @@ int Application::runWindowed() {
 					ImGui::Text("ECEF    %.1f, %.1f, %.1f km",
 					            satellite->ecefKm.x, satellite->ecefKm.y, satellite->ecefKm.z);
 					ImGui::Text("Access point  %s", satellite->isAp ? "yes" : "no");
+					if (const LoadState* load = loadFor(satellite->id)) {
+						const double total = satelliteLoad(*load, scene_->cpuCapacity, scene_->netCapacity);
+						ImGui::Text("Load  %.0f%%", total * 100.0);
+						ImGui::Text("CPU queue/service  %d / %d", load->cpuQueue, load->cpuService);
+						ImGui::Text("NET queue/service  %d / %d", load->netQueue, load->netService);
+						ImGui::Text("Completed  %d  Energy  %.1f J", load->completed, load->energyJ);
+					} else {
+						ImGui::TextDisabled("Load  n/a");
+					}
 					if (!satellite->terminalRef.empty()) {
 						ImGui::Text("Terminal  %s", satellite->terminalRef.c_str());
 					}
