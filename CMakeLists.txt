@@ -87,6 +87,8 @@ set(SECGUI_SOURCES
 	src/gpu/GpuContext.cpp
 	src/gpu/WebGpuCpp.cpp
 	src/render/Renderer.cpp
+	src/render/Camera.cpp
+	src/scene/FrameData.cpp
 	src/scene/SceneLoader.cpp
 	src/screenshot/Screenshot.cpp
 	src/util/Log.cpp

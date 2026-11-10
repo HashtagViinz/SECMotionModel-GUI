@@ -1,7 +1,10 @@
 #pragma once
 
+#include "scene/FrameData.hpp"
+
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace secgui {
 
@@ -31,6 +34,17 @@ struct SceneMetadata {
 class SceneLoader {
 public:
 	static SceneMetadata load(const std::filesystem::path& path);
+
+	// Path of a frame file inside the scene directory.
+	static std::filesystem::path framePath(const SceneMetadata& scene, int frameIndex);
+
+	// Loads and validates one frame. Throws std::runtime_error on failure.
+	static FrameData loadFrame(const SceneMetadata& scene, int frameIndex);
+
+	// Loads the task trace (manifest path unless `overridePath` is set).
+	// Returns an empty vector when no trace file is configured.
+	static std::vector<TaskEvent> loadTasks(const SceneMetadata& scene,
+	                                        const std::string& overridePath = {});
 };
 
 } // namespace secgui

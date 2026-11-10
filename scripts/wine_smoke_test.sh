@@ -55,11 +55,29 @@ SCENE_WIN="$(to_windows_path "$SCENE")"
 SCRIPT_WIN="$(to_windows_path "$SCRIPT")"
 OUT_WIN="$(to_windows_path "$OUT_DIR")"
 
+echo "--- wine dll diagnostics"
+find /usr -iname '*d3dcompiler*' 2>/dev/null | head -20 || true
+if ! find /usr -iname '*d3dcompiler_47*' 2>/dev/null | grep -q .; then
+  echo "d3dcompiler_47 not found in the Wine prefix, trying winetricks"
+  winetricks -q d3dcompiler_47 >/tmp/winetricks.log 2>&1 || true
+  tail -5 /tmp/winetricks.log || true
+fi
+
 set -x
+set +e
+export WINEDEBUG="${APP_WINEDEBUG:-err+module}"
 run_wine "$APP" --headless --backend vulkan --strict \
   --scene "$SCENE_WIN" \
   --script "$SCRIPT_WIN" \
-  --output-dir "$OUT_WIN"
+  --output-dir "$OUT_WIN" > /tmp/wine-app.log 2>&1
+WINE_STATUS=$?
+set -e
+cat /tmp/wine-app.log
+echo "wine application status: $WINE_STATUS"
+grep -iE "d3dcompiler|err:module|not found|adapter" /tmp/wine-app.log | head -20 || true
+if [ "$WINE_STATUS" -ne 0 ]; then
+  exit "$WINE_STATUS"
+fi
 
 PNG="$OUT_DIR/minimal_frame2.png"
 if [ ! -s "$PNG" ]; then
