@@ -115,7 +115,7 @@ set +e
 run_wine "$APP" --headless --backend vulkan --strict \
   --scene "$LIVE_SCENE_WIN" \
   --time 2 \
-  --screenshot "$LIVE_OUT_WIN/frame.png" \
+  --screenshot frame.png \
   --width 1280 --height 720 \
   --output-dir "$LIVE_OUT_WIN" > /tmp/wine-live.log 2>&1
 LIVE_STATUS=$?

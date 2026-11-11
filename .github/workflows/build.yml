@@ -91,7 +91,7 @@ jobs:
           ./build-linux/secmotion-gui --headless --backend vulkan --strict \
             --scene examples/live/manifest.json \
             --time 2 \
-            --screenshot out/linux-live/frame.png \
+            --screenshot frame.png \
             --width 1280 --height 720 \
             --output-dir out/linux-live
           test -s out/linux-live/frame.png
@@ -129,7 +129,7 @@ jobs:
           ./dist/SECMotionModel-GUI-0.2.0-x86_64.AppImage --headless --backend vulkan --strict \
             --scene examples/live/manifest.json \
             --time 2 \
-            --screenshot out/appimage-live/frame.png \
+            --screenshot frame.png \
             --width 1280 --height 720 \
             --output-dir out/appimage-live
           test -s out/appimage-live/frame.png
