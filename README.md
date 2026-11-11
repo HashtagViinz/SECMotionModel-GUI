@@ -103,7 +103,9 @@ writes the GUI frames. The GUI itself does no orbital mechanics.
 `--run` exports a simulation directory containing `gui_run.json`,
 `gui_state.csv` and `gui_links.csv`. It adds the real per-satellite load
 (`loads.jsonl`) and the real forward events (`traffic.jsonl`) to the scene.
-Satellites that are no longer in a frame are dropped from the load data.
+Satellites that are no longer in a frame are dropped from the load data. See
+[docs/REPORT-live-traffic.md](docs/REPORT-live-traffic.md) for the v0.2
+telemetry report and evidence.
 
 The launcher prefers `SECGUI_BIN`, then the newest AppImage in `dist/`, then
 `build-gui/secmotion-gui`. It falls back to `APPIMAGE_EXTRACT_AND_RUN=1` when

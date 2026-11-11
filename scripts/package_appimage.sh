@@ -8,7 +8,7 @@ set -euo pipefail
 
 BIN="${1:?usage: package_appimage.sh <binary> <output-dir>}"
 OUT="${2:-dist}"
-VERSION="${VERSION:-0.1.2}"
+VERSION="${VERSION:-0.2.0}"
 APPIMAGETOOL="${APPIMAGETOOL:-appimagetool}"
 
 if [ ! -x "$BIN" ]; then
