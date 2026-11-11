@@ -9,9 +9,10 @@ The GUI renders LEO satellite motion, inter-satellite links, visibility domes an
 - **testable by agents**, thanks to deterministic offscreen rendering, PNG screenshots and JSON results on stdout;
 - **portable**, with static Windows `.exe` and Linux `.AppImage` builds.
 
-> Status: Phase 3 (renderer, HUD, interactive window) and Phase 4 (timeline,
-> layers, telemetry, command palette, recorder) implemented on Linux and
-> validated on bare metal. Windows packaging is being finished next.
+> Status: v0.2.0 released for Linux and Windows. Includes the interactive
+> window, timeline, layers, telemetry, command palette and recorder, plus live
+> per-satellite load and link traffic from real simulation runs. Windows is
+> validated under Wine in CI; macOS is out of scope.
 
 ## Layout
 
