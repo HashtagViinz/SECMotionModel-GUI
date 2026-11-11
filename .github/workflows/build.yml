@@ -87,6 +87,19 @@ jobs:
             --script examples/minimal/demo.jsonl \
             --output-dir out/linux
           test -s out/linux/minimal_frame2.png
+          mkdir -p out/linux-live
+          ./build-linux/secmotion-gui --headless --backend vulkan --strict \
+            --scene examples/live/manifest.json \
+            --time 2 \
+            --screenshot frame.png \
+            --width 1280 --height 720 \
+            --output-dir out/linux-live
+          test -s out/linux-live/frame.png
+          printf '%s\n' '{"cmd":"state"}' | \
+            ./build-linux/secmotion-gui --headless --backend vulkan \
+              --scene examples/live/manifest.json --script - > out/linux-live/state.jsonl
+          grep -q '"load_samples":9' out/linux-live/state.jsonl
+          grep -q '"traffic_events":5' out/linux-live/state.jsonl
 
       - name: Windowed smoke test (Xvfb)
         env:
@@ -107,11 +120,19 @@ jobs:
             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x /usr/local/bin/appimagetool
           bash scripts/package_appimage.sh build-linux/secmotion-gui dist
-          ./dist/SECMotionModel-GUI-0.1.2-x86_64.AppImage --headless --backend vulkan --strict \
+          ./dist/SECMotionModel-GUI-0.2.0-x86_64.AppImage --headless --backend vulkan --strict \
             --scene examples/minimal/scene.json \
             --script examples/minimal/demo.jsonl \
             --output-dir out/appimage
           test -s out/appimage/minimal_frame2.png
+          mkdir -p out/appimage-live
+          ./dist/SECMotionModel-GUI-0.2.0-x86_64.AppImage --headless --backend vulkan --strict \
+            --scene examples/live/manifest.json \
+            --time 2 \
+            --screenshot frame.png \
+            --width 1280 --height 720 \
+            --output-dir out/appimage-live
+          test -s out/appimage-live/frame.png
           sha256sum dist/*.AppImage > dist/SHA256SUMS
           ls -lh dist
 

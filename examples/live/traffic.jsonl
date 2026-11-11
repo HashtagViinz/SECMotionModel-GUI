@@ -1,0 +1,5 @@
+{"t0":0.4,"t1":0.8,"from":"STARLINK-5707","to":"STARLINK-33957","task":1,"size_mb":12.5,"bandwidth_mbps":2500.0,"duration_s":0.4,"kind":"isl","algo":"GREEDY"}
+{"t0":1.0,"t1":1.2,"from":"STARLINK-33957","to":"STARLINK-37163","task":2,"size_mb":8.0,"bandwidth_mbps":2400.0,"duration_s":0.2,"kind":"isl","algo":"GREEDY"}
+{"t0":1.8,"t1":2.4,"from":"STARLINK-37163","to":"STARLINK-2500","task":3,"size_mb":20.0,"bandwidth_mbps":2300.0,"duration_s":0.6,"kind":"isl","algo":"GREEDY"}
+{"t0":2.2,"t1":2.5,"from":"STARLINK-5707","to":"STARLINK-1191","task":4,"size_mb":5.0,"bandwidth_mbps":2600.0,"duration_s":0.3,"kind":"isl","algo":"GREEDY"}
+{"t0":2.8,"t1":3.0,"from":"STARLINK-33957","to":"V-ATLANTIC","task":5,"size_mb":12.5,"bandwidth_mbps":2500.0,"duration_s":0.2,"kind":"downlink","algo":"GREEDY"}

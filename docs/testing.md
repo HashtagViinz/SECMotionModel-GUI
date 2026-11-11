@@ -7,6 +7,8 @@
 3. **End-to-end headless** (`tests/e2e`): JSONL scripts, JSON result assertions,
    PNG checks.
 4. **Platform smoke tests**: `.exe` under Wine, AppImage.
+5. **Live scene v2**: `examples/live` covers `loads.jsonl`, `traffic.jsonl`
+   and the load/traffic layers; CI runs it on Linux and under Wine.
 5. **Golden screenshots**: same-platform exact, cross-platform tolerant.
 
 ## Local preflight

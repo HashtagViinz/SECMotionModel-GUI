@@ -1,0 +1,36 @@
+{
+  "version": 2,
+  "generator": "SECMotionModel-GUI v2 smoke fixture",
+  "t0": "2026-11-02T21:32:33.681068Z",
+  "interval_s": 2.0,
+  "duration_s": 4.0,
+  "earth_radius_km": 6371.0,
+  "phi_max_deg": 40,
+  "phi_buffer_deg": 15,
+  "terminal": {
+    "name": "V-ATLANTIC",
+    "lat": 33.373586,
+    "lon": -47.955604
+  },
+  "observer": {
+    "name": "OBS",
+    "lat": 41.9028,
+    "lon": 12.4964
+  },
+  "frames": {
+    "count": 3,
+    "pattern": "frames/%06d.json"
+  },
+  "loads": "loads.jsonl",
+  "traffic": "traffic.jsonl",
+  "load": {
+    "metric": "max",
+    "cpu_capacity": 5,
+    "net_capacity": 5
+  },
+  "default_layers": {
+    "load": true,
+    "traffic": true,
+    "tasks": false
+  }
+}

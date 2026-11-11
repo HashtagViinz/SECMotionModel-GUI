@@ -8,6 +8,7 @@ set -euo pipefail
 APP="${1:-/app/secmotion-gui.exe}"
 SCENE="${SCENE:-/app/examples/minimal/scene.json}"
 SCRIPT="${SCRIPT:-/app/examples/minimal/demo.jsonl}"
+LIVE_SCENE="${LIVE_SCENE:-/app/examples/live/manifest.json}"
 OUT_DIR="${OUT_DIR:-/app/out}"
 
 export WINEPREFIX="${WINEPREFIX:-/wine}"
@@ -16,7 +17,7 @@ export WINEDEBUG="${WINEDEBUG:--all}"
 export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-mscoree,mshtml=}"
 export VK_ICD_FILENAMES="${VK_ICD_FILENAMES:-/usr/share/vulkan/icd.d/lvp_icd.x86_64.json}"
 
-mkdir -p "$OUT_DIR"
+mkdir -p "$OUT_DIR" "$OUT_DIR/live"
 
 WINE_BIN="$(command -v wine64 2>/dev/null || true)"
 if [ -z "$WINE_BIN" ]; then
@@ -106,6 +107,29 @@ if [ ! -s "$PNG" ]; then
 fi
 
 file "$PNG"
+
+echo "--- live scene v2 smoke test (loads + traffic)"
+LIVE_SCENE_WIN="$(to_windows_path "$LIVE_SCENE")"
+LIVE_OUT_WIN="$(to_windows_path "$OUT_DIR/live")"
+set +e
+run_wine "$APP" --headless --backend vulkan --strict \
+  --scene "$LIVE_SCENE_WIN" \
+  --time 2 \
+  --screenshot frame.png \
+  --width 1280 --height 720 \
+  --output-dir "$LIVE_OUT_WIN" > /tmp/wine-live.log 2>&1
+LIVE_STATUS=$?
+set -e
+cat /tmp/wine-live.log
+if [ "$LIVE_STATUS" -ne 0 ]; then
+  echo "error: live scene smoke test failed with status $LIVE_STATUS" >&2
+  exit "$LIVE_STATUS"
+fi
+if [ ! -s "$OUT_DIR/live/frame.png" ]; then
+  echo "error: expected live screenshot not found: $OUT_DIR/live/frame.png" >&2
+  exit 1
+fi
+file "$OUT_DIR/live/frame.png"
 
 echo "--- windowed smoke test (Xvfb + Wine Win32 surface)"
 set +e

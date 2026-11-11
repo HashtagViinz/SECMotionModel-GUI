@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -35,6 +36,35 @@ struct EntityFrame {
 	double lat = 0.0;
 	double lon = 0.0;
 	Vec3 ecefKm;
+};
+
+struct LoadState {
+	int cpuQueue = 0;
+	int cpuService = 0;
+	int netQueue = 0;
+	int netService = 0;
+	int completed = 0;
+	double energyJ = 0.0;
+	double energyReservedJ = 0.0;
+};
+
+struct LoadSample {
+	double t = 0.0;
+	int frame = 0;
+	std::map<std::string, LoadState> satellites;
+};
+
+struct TrafficEvent {
+	double t0 = 0.0;
+	double t1 = 0.0;
+	std::string from;
+	std::string to;
+	int task = 0;
+	double sizeMb = 0.0;
+	double bandwidthMbps = 0.0;
+	double durationS = 0.0;
+	std::string kind;
+	std::string algorithm;
 };
 
 struct FrameData {

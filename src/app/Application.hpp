@@ -49,6 +49,8 @@ private:
 	void reloadFrame();
 	void buildEarthGrid();
 	bool layerEnabled(const std::string& name, bool fallback = true) const;
+	const LoadSample* currentLoadSample() const;
+	const LoadState* loadFor(const std::string& id) const;
 	RenderFrame buildRenderFrame(unsigned width, unsigned height) const;
 	nlohmann::json sceneInfo() const;
 	void setFrame(int frame);
@@ -64,6 +66,8 @@ private:
 	std::optional<SceneMetadata> scene_;
 	std::optional<FrameData> frameData_;
 	std::vector<TaskEvent> tasks_;
+	std::vector<LoadSample> loads_;
+	std::vector<TrafficEvent> traffic_;
 	CameraState camera_;
 	double earthRadiusKm_ = 6371.0;
 	double phiMaxDeg_ = 40.0;
