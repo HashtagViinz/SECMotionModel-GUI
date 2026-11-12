@@ -84,7 +84,7 @@ scene arguments, so the GUI can be started with a single command:
 ln -sf "$PWD/scripts/run_gui.sh" ~/.local/bin/secgui
 
 secgui                                  # minimal example scene
-secgui --naval                          # exported 760-satellite naval scene
+secgui --naval                          # latest naval run (load + traffic)
 secgui --naval --time 10 --camera vessel
 secgui --config data/naval_configurations_AP_optimal.json
 secgui --config data/naval_configurations_AP_optimal.json \
@@ -100,6 +100,11 @@ opens the result directly; the first run takes about 20 s and is cached under
 The core configuration already contains the per-step TLEs, access points,
 elevation, range and neighbors; the exporter propagates the TLEs to ECEF and
 writes the GUI frames. The GUI itself does no orbital mechanics.
+
+`--naval` opens the latest exported run automatically, preferring
+`result/naval/IN_NETWORK/optimal` and falling back to
+`result/naval/TO_OBSERVER/optimal`. Set `SECGUI_NAVAL_RUN` to choose another
+run, or `SECGUI_NAVAL_SCENE` to open a legacy pre-exported scene instead.
 
 `--run` exports a simulation directory containing `gui_run.json`,
 `gui_state.csv` and `gui_links.csv`. It adds the real per-satellite load

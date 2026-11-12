@@ -3,7 +3,7 @@
 # Convenience launcher for the SECMotionModel GUI.
 #
 #   secgui                  minimal scene
-#   secgui --naval          exported naval scene (760 satellites), if present
+#   secgui --naval          latest naval run (load + traffic), or a legacy scene
 #   secgui path/scene.json  explicit scene, optional tasks as second argument
 #   secgui --backend vulkan extra flags are forwarded to the application
 #
@@ -28,7 +28,8 @@ Usage: secgui [options] [scene] [tasks]
 With no arguments, opens the minimal example scene.
 
   --minimal          use examples/minimal (default)
-  --naval            use the exported 760-satellite naval scene
+  --naval            open the latest naval run (load + traffic), or an
+                     exported v1/v2 scene if no run is available
   --config <json>    export a core configurations JSON and open it
   --trace <jsonl>    optional task trace to use with --config
   --run <dir>        export a simulation run with load and traffic telemetry
@@ -52,8 +53,9 @@ Examples:
 
 Environment:
   SECGUI_BIN            explicit executable to run
-  SECGUI_NAVAL_SCENE    naval scene directory (default: /tmp/opencode/naval-scene)
-  SECGUI_CACHE_DIR      scene cache for --config (default: ~/.cache/secgui)
+  SECGUI_NAVAL_RUN      naval run directory (default: result/naval/IN_NETWORK/optimal)
+  SECGUI_NAVAL_SCENE    legacy naval scene directory; overrides SECGUI_NAVAL_RUN
+  SECGUI_CACHE_DIR      scene cache (default: ~/.cache/secgui)
 EOF
 }
 
@@ -66,6 +68,23 @@ find_naval_scene() {
 	local candidate
 	for candidate in "${candidates[@]}"; do
 		if [ -n "$candidate" ] && [ -f "$candidate/manifest.json" ]; then
+			printf '%s\n' "$candidate"
+			return 0
+		fi
+	done
+	return 1
+}
+
+find_naval_run() {
+	local core candidate
+	core="$(find_core_root)" || return 1
+	local candidates=(
+		"${SECGUI_NAVAL_RUN:-}"
+		"$core/result/naval/IN_NETWORK/optimal"
+		"$core/result/naval/TO_OBSERVER/optimal"
+	)
+	for candidate in "${candidates[@]}"; do
+		if [ -n "$candidate" ] && [ -f "$candidate/gui_run.json" ]; then
 			printf '%s\n' "$candidate"
 			return 0
 		fi
@@ -317,16 +336,32 @@ if ! $has_scene; then
 		fi
 		filtered=("${scene_args[@]}" "${rest[@]}")
 	elif [ "$mode" = "naval" ]; then
-		if ! naval="$(find_naval_scene)"; then
-			echo "error: naval scene not found." >&2
-			echo "Regenerate it from the core repository:" >&2
-			echo "  cd /home/vinz/SEC/SECMotionModel" >&2
-			echo "  python3 tools/parse_naval_log.py --log result/naval_full_run_2026-11-10/naval_full_in_network.log --out /tmp/opencode/naval-tasks.jsonl" >&2
-			echo "  python3 tools/export_gui_scene.py --config data/naval_configurations_AP_optimal.json --core-config config/config.json5 --trace /tmp/opencode/naval-tasks.jsonl --out /tmp/opencode/naval-scene" >&2
+		naval=""
+		naval_run=""
+		if [ -n "${SECGUI_NAVAL_SCENE:-}" ] && [ -f "$SECGUI_NAVAL_SCENE/manifest.json" ]; then
+			naval="$SECGUI_NAVAL_SCENE"
+		elif naval_run="$(find_naval_run)"; then
+			core="$(find_core_root)"
+			scene_dir="$(export_run_scene "$naval_run" "$core")" || exit 1
+			filtered=(--scene "$scene_dir/manifest.json" --camera vessel --target V-ATLANTIC "${filtered[@]}")
+		elif ! naval="$(find_naval_scene)"; then
+			core="$(find_core_root 2>/dev/null || true)"
+			echo "error: naval run or scene not found." >&2
+			echo "Create a run with the GUI export enabled:" >&2
+			echo "  cd ${core:-<SECMotionModel>}" >&2
+			echo "  python3 naval_main.py --load-only --run-sim --gui-export --use-case IN_NETWORK" >&2
+			echo "Then run: secgui --naval" >&2
+			echo "Or open an existing run: secgui --run <run-dir>" >&2
 			echo "Or set SECGUI_NAVAL_SCENE to a directory containing manifest.json." >&2
 			exit 1
 		fi
-		filtered=(--scene "$naval/manifest.json" --tasks "$naval/tasks.jsonl" --camera vessel --target V-ATLANTIC "${filtered[@]}")
+		if [ -n "$naval" ]; then
+			naval_args=(--scene "$naval/manifest.json")
+			if [ -f "$naval/tasks.jsonl" ]; then
+				naval_args+=(--tasks "$naval/tasks.jsonl")
+			fi
+			filtered=("${naval_args[@]}" --camera vessel --target V-ATLANTIC "${filtered[@]}")
+		fi
 	else
 		filtered=(--scene "$REPO/examples/minimal/scene.json" --tasks "$REPO/examples/minimal/tasks.jsonl" "${filtered[@]}")
 	fi
