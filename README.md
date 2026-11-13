@@ -115,13 +115,15 @@ telemetry report and evidence.
 
 The launcher prefers `SECGUI_BIN`, then the newest AppImage in `dist/`, then
 `build-gui/secmotion-gui`. It falls back to `APPIMAGE_EXTRACT_AND_RUN=1` when
-FUSE is unavailable. The naval scene is read from `SECGUI_NAVAL_SCENE`,
-`examples/generated/naval/`, or `/tmp/opencode/naval-scene`; if none exists the
-launcher prints the two core commands needed to regenerate it.
+FUSE is unavailable. `--naval` reads `SECGUI_NAVAL_RUN` or, by default,
+`result/naval/IN_NETWORK/optimal` (then `TO_OBSERVER`); `SECGUI_NAVAL_SCENE`
+overrides it with a legacy pre-exported scene. If none exists the launcher
+prints the core command needed to create a run.
 
 Shortcuts: `Space` play/pause, `←`/`→` step, `1`–`5` camera mode,
 `G/I/D/O/K` layers, `L` layers panel, `T` telemetry, `Ctrl+K` command palette,
-`F12` screenshot, `R` reset, `Ctrl+Q` quit. Drag to orbit, wheel to zoom,
+`F12` screenshot, `R` reset, `Ctrl+Q` quit. Drag to orbit, two-finger trackpad
+scroll (or wheel) to zoom, `Shift` for fine zoom, `+`/`-` as keyboard zoom,
 click to select an entity.
 
 See [docs/commands.md](docs/commands.md) for the full JSONL protocol and the

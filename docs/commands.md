@@ -95,8 +95,11 @@ automatically; no extra CLI flag is needed.
 - Both layers can be toggled from the Layers panel or with
   `--layer load=off` / `--layer traffic=off`.
 
-Mouse: drag to orbit, wheel to zoom, click to select. Panels: `L` toggles
-Layers, `T` toggles Telemetry, `Ctrl+K` toggles the JSON command palette.
+Mouse: drag to orbit, scroll to zoom, click to select. A two-finger trackpad
+scroll zooms smoothly; hold `Shift` for finer steps. `+` and `-` zoom from the
+keyboard. Compositors that expose pinch as `Ctrl+wheel` take the same zoom
+path; GLFW has no native pinch-gesture API. Panels: `L` toggles Layers, `T`
+toggles Telemetry, `Ctrl+K` toggles the JSON command palette.
 
 ## Example script
 

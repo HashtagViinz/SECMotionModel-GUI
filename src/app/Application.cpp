@@ -1314,6 +1314,22 @@ int Application::runWindowed() {
 	double lastMouseX = 0.0;
 	double lastMouseY = 0.0;
 	double lastFrameTime = glfwGetTime();
+	double zoomTargetKm = camera_.distanceKm;
+	double zoomLastKm = camera_.distanceKm;
+	bool zoomActive = false;
+
+	const auto zoomBy = [&](double steps) {
+		if (!zoomActive) {
+			zoomTargetKm = camera_.distanceKm;
+			zoomLastKm = camera_.distanceKm;
+		}
+		// Trackpads send many fractional scroll events; Shift gives finer
+		// control for small adjustments.
+		const double sensitivity = io.KeyShift ? 0.95 : 0.88;
+		zoomTargetKm = std::clamp(
+			zoomTargetKm * std::pow(sensitivity, steps), 500.0, 60000.0);
+		zoomActive = true;
+	};
 
 	const auto runCommand = [&](const std::string& command, const nlohmann::json& payload) -> bool {
 		try {
@@ -1366,16 +1382,6 @@ int Application::runWindowed() {
 
 		RenderFrame sceneFrame = buildRenderFrame(width, height);
 
-		if (!io.WantCaptureMouse && io.MouseWheel != 0.0f) {
-			camera_.distanceKm = std::clamp(
-				camera_.distanceKm * std::pow(0.88, static_cast<double>(io.MouseWheel)),
-				500.0, 60000.0);
-			runCommand("camera", nlohmann::json{
-				{"mode", camera_.mode},
-				{"target", camera_.target},
-				{"distance_km", camera_.distanceKm},
-			});
-		}
 		if (!io.WantCaptureMouse && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
 			double mouseX = 0.0;
 			double mouseY = 0.0;
@@ -1445,6 +1451,13 @@ int Application::runWindowed() {
 		ImGui_ImplWGPU_NewFrame();
 		ImGui::NewFrame();
 
+		// Two-finger touchpad scrolling and mouse wheels both arrive as
+		// MouseWheel. Compositors that translate pinch into Ctrl+wheel take
+		// the same path, so pinch-to-zoom works where the platform exposes it.
+		if (!io.WantCaptureMouse && io.MouseWheel != 0.0f) {
+			zoomBy(static_cast<double>(io.MouseWheel));
+		}
+
 		if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_K)) {
 			showPalette = !showPalette;
 		}
@@ -1472,6 +1485,14 @@ int Application::runWindowed() {
 			}
 			if (ImGui::IsKeyPressed(ImGuiKey_RightBracket)) {
 				runCommand("speed", nlohmann::json{{"value", std::min(8.0, speed_ * 1.5)}});
+			}
+			if (ImGui::IsKeyPressed(ImGuiKey_Equal)
+			    || ImGui::IsKeyPressed(ImGuiKey_KeypadAdd)) {
+				zoomBy(-1.0);
+			}
+			if (ImGui::IsKeyPressed(ImGuiKey_Minus)
+			    || ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract)) {
+				zoomBy(1.0);
 			}
 			const char* cameraShortcuts[] = {"orbit", "vessel", "topdown", "satellite", "free"};
 			const ImGuiKey cameraKeys[] = {ImGuiKey_1, ImGuiKey_2, ImGuiKey_3, ImGuiKey_4, ImGuiKey_5};
@@ -1502,6 +1523,26 @@ int Application::runWindowed() {
 		}
 		if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Q)) {
 			quit_ = true;
+		}
+
+		if (zoomActive) {
+			if (std::abs(camera_.distanceKm - zoomLastKm) > 1e-6) {
+				// Another camera command changed the distance while settling.
+				zoomActive = false;
+			} else {
+				const double blend = 1.0 - std::exp(-delta * 18.0);
+				camera_.distanceKm += (zoomTargetKm - camera_.distanceKm) * blend;
+				zoomLastKm = camera_.distanceKm;
+				if (std::abs(camera_.distanceKm - zoomTargetKm) < 0.5) {
+					camera_.distanceKm = zoomTargetKm;
+					zoomActive = false;
+					runCommand("camera", nlohmann::json{
+						{"mode", camera_.mode},
+						{"target", camera_.target},
+						{"distance_km", camera_.distanceKm},
+					});
+				}
+			}
 		}
 
 		std::size_t accessPoints = 0;
@@ -1616,7 +1657,9 @@ int Application::runWindowed() {
 				ImGui::Text("L layers  T telemetry");
 				ImGui::Text("Ctrl+K command palette");
 				ImGui::Text("F12 screenshot");
-				ImGui::Text("Drag orbit, wheel zoom");
+				ImGui::Text("Drag orbit");
+				ImGui::Text("Scroll / two-finger  zoom");
+				ImGui::Text("+ / -  zoom  (Shift = fine)");
 			}
 			ImGui::End();
 		}
