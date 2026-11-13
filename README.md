@@ -83,7 +83,8 @@ scene arguments, so the GUI can be started with a single command:
 # install once
 ln -sf "$PWD/scripts/run_gui.sh" ~/.local/bin/secgui
 
-secgui                                  # empty workspace with Import panel
+secgui                                  # TLE base scene (all satellites)
+secgui --empty                          # empty workspace with Import panel
 secgui --minimal                        # minimal example scene
 secgui --naval                          # latest naval run (load + traffic)
 secgui --import result/naval/IN_NETWORK/optimal
@@ -108,12 +109,18 @@ writes the GUI frames. The GUI itself does no orbital mechanics.
 `result/naval/TO_OBSERVER/optimal`. Set `SECGUI_NAVAL_RUN` to choose another
 run, or `SECGUI_NAVAL_SCENE` to open a legacy pre-exported scene instead.
 
-With no scene argument the window opens empty with an **Import scene** panel.
-The panel browses directories, recognizes a scene (`manifest.json`/`scene.json`)
-or a simulation run (`gui_run.json`), and loads it. A raw run is exported to
-`/tmp/secgui-imports` with the core Python exporter before loading; the core is
-found through `SECGUI_CORE` or a sibling `SECMotionModel` checkout. The same
-path can be loaded non-interactively with `--import DIR`.
+With no arguments `secgui` opens the **TLE base scene**: every satellite in
+the core `data/tle_data.txt` catalog around the globe. The launcher generates
+it with `tools/export_base_scene.py` on first use (about 16 s, 30 MB) and caches
+it under `~/.cache/secgui/base`; later launches are immediate. Override the
+location with `SECGUI_BASE_SCENE`.
+
+`secgui --empty` (or `secgui --import DIR`) uses the **Import scene** panel
+instead. The panel browses directories, recognizes a scene
+(`manifest.json`/`scene.json`) or a simulation run (`gui_run.json`), and loads
+it. A raw run is exported to `/tmp/secgui-imports` with the core Python
+exporter before loading; the core is found through `SECGUI_CORE` or a sibling
+`SECMotionModel` checkout.
 
 `--run` exports a simulation directory containing `gui_run.json`,
 `gui_state.csv` and `gui_links.csv`. It adds the real per-satellite load

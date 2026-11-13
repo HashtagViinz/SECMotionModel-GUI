@@ -2,7 +2,8 @@
 #
 # Convenience launcher for the SECMotionModel GUI.
 #
-#   secgui                  empty workspace with the import panel
+#   secgui                  TLE base scene (all satellites around the globe)
+#   secgui --empty          empty workspace with the import panel
 #   secgui --minimal        minimal example scene
 #   secgui --naval          latest naval run (load + traffic), or a legacy scene
 #   secgui path/scene.json  explicit scene, optional tasks as second argument
@@ -26,8 +27,11 @@ usage() {
 	cat <<'EOF'
 Usage: secgui [options] [scene] [tasks]
 
-With no arguments, opens an empty workspace with the import panel.
+With no arguments, opens the TLE base scene: all satellites in
+data/tle_data.txt orbiting the globe. It is generated on first use and cached.
 
+  --base             TLE base scene (default)
+  --empty            empty workspace with the Import panel
   --minimal          open examples/minimal directly
   --naval            open the latest naval run (load + traffic), or an
                      exported v1/v2 scene if no run is available
@@ -44,6 +48,7 @@ directory first, then against the core repository.
 
 Examples:
   secgui
+  secgui --empty
   secgui --minimal
   secgui --import result/naval/IN_NETWORK/optimal
   secgui --naval
@@ -57,6 +62,7 @@ Examples:
 
 Environment:
   SECGUI_BIN            explicit executable to run
+  SECGUI_BASE_SCENE     TLE base scene directory (default: <cache>/base)
   SECGUI_NAVAL_RUN      naval run directory (default: result/naval/IN_NETWORK/optimal)
   SECGUI_NAVAL_SCENE    legacy naval scene directory; overrides SECGUI_NAVAL_RUN
   SECGUI_CACHE_DIR      scene cache (default: ~/.cache/secgui)
@@ -188,6 +194,47 @@ export_run_scene() {
 	printf '%s\n' "$cache"
 }
 
+base_scene_dir() {
+	printf '%s\n' "${SECGUI_BASE_SCENE:-${SECGUI_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/secgui}/base}"
+}
+
+find_base_scene() {
+	local directory
+	directory="$(base_scene_dir)"
+	if [ -f "$directory/manifest.json" ]; then
+		printf '%s\n' "$directory"
+		return 0
+	fi
+	return 1
+}
+
+export_base_scene() {
+	local core="$1" directory stamp tmp
+	directory="$(base_scene_dir)"
+	stamp="$(stat -c '%Y-%s' "$core/data/tle_data.txt" 2>/dev/null || true)"
+	if [ -f "$directory/manifest.json" ] && [ -n "$stamp" ] \
+		&& [ -f "$directory/.stamp" ] && [ "$(cat "$directory/.stamp")" = "$stamp" ]; then
+		printf '%s\n' "$directory"
+		return 0
+	fi
+	echo "secgui: generating TLE base scene from $core/data/tle_data.txt" >&2
+	tmp="$directory.tmp.$$"
+	rm -rf "$tmp"
+	mkdir -p "$(dirname "$directory")"
+	if ! (cd "$core" && python3 tools/export_base_scene.py \
+		--tle data/tle_data.txt --out "$tmp" --interval 5 --duration 300) 1>&2; then
+		rm -rf "$tmp"
+		echo "secgui: base scene generation failed" >&2
+		return 1
+	fi
+	if [ -n "$stamp" ]; then
+		printf '%s\n' "$stamp" >"$tmp/.stamp"
+	fi
+	rm -rf "$directory"
+	mv "$tmp" "$directory"
+	printf '%s\n' "$directory"
+}
+
 find_binary() {
 	if [ -n "${SECGUI_BIN:-}" ] && [ -x "$SECGUI_BIN" ]; then
 		printf '%s\n' "$SECGUI_BIN"
@@ -208,13 +255,15 @@ find_binary() {
 	return 1
 }
 
-mode="import"
+mode="base"
 filtered=()
 config_path=""
 trace_path=""
 run_path=""
 while [ $# -gt 0 ]; do
 	case "$1" in
+		--base) mode="base"; shift ;;
+		--empty) mode="import"; shift ;;
 		--minimal) mode="minimal"; shift ;;
 		--naval) mode="naval"; shift ;;
 		--config)
@@ -368,6 +417,19 @@ if ! $has_scene; then
 		fi
 	elif [ "$mode" = "minimal" ]; then
 		filtered=(--scene "$REPO/examples/minimal/scene.json" --tasks "$REPO/examples/minimal/tasks.jsonl" "${filtered[@]}")
+	elif [ "$mode" = "base" ]; then
+		base=""
+		if ! base="$(find_base_scene)"; then
+			if core="$(find_core_root)" && [ -f "$core/data/tle_data.txt" ]; then
+				base="$(export_base_scene "$core")" || base=""
+			fi
+		fi
+		if [ -n "$base" ]; then
+			filtered=(--scene "$base/manifest.json" --camera orbit \
+				--layer isl=off --layer dome=off --layer route=off "${filtered[@]}")
+		else
+			echo "secgui: TLE base scene unavailable; opening the Import panel" >&2
+		fi
 	fi
 fi
 
