@@ -13,6 +13,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <utility>
 
 #ifdef SECGUI_WINDOW
 #include <GLFW/glfw3.h>
@@ -1318,6 +1319,16 @@ int Application::runWindowed() {
 	double zoomLastKm = camera_.distanceKm;
 	bool zoomActive = false;
 
+	const auto zoomLimits = [&]() {
+		if (camera_.mode == "satellite") {
+			return std::pair{2.0, 60000.0};
+		}
+		if (camera_.mode == "vessel" || camera_.mode == "topdown") {
+			return std::pair{5.0, 60000.0};
+		}
+		return std::pair{earthRadiusKm_ * 1.05, 60000.0};
+	};
+
 	const auto zoomBy = [&](double steps) {
 		if (!zoomActive) {
 			zoomTargetKm = camera_.distanceKm;
@@ -1326,8 +1337,9 @@ int Application::runWindowed() {
 		// Trackpads send many fractional scroll events; Shift gives finer
 		// control for small adjustments.
 		const double sensitivity = io.KeyShift ? 0.95 : 0.88;
+		const auto limits = zoomLimits();
 		zoomTargetKm = std::clamp(
-			zoomTargetKm * std::pow(sensitivity, steps), 500.0, 60000.0);
+			zoomTargetKm * std::pow(sensitivity, steps), limits.first, limits.second);
 		zoomActive = true;
 	};
 

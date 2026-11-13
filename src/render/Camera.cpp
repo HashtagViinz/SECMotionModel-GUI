@@ -125,7 +125,15 @@ CameraFrame Camera::compute(const CameraState& state, const FrameData& frame,
 		std::sin(pitchRadians),
 	};
 
-	const double minimumDistance = earthRadiusKm * 1.05;
+	// The Earth-radius floor only makes sense when orbiting the planet. With
+	// the vessel or a satellite as focus it kept the eye thousands of km away,
+	// so zoom could never approach the target.
+	double minimumDistance = earthRadiusKm * 1.05;
+	if (state.mode == "vessel" || state.mode == "topdown") {
+		minimumDistance = 5.0;
+	} else if (state.mode == "satellite") {
+		minimumDistance = 2.0;
+	}
 	const double effectiveDistance = std::max(distance, minimumDistance);
 	result.eye = add(result.focus, scale(direction, effectiveDistance));
 
