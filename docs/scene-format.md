@@ -1,4 +1,4 @@
-# Scene format v1
+# Scene format v1/v2
 
 A GUI scene is a directory:
 
@@ -8,11 +8,14 @@ scene/
   frames/
     000000.json
     000001.json
-  tasks.jsonl        optional
+  tasks.jsonl        optional, task pulses
+  loads.jsonl        optional, v2 per-satellite load
+  traffic.jsonl      optional, v2 forward events
 ```
 
-JSON Schemas live in `schema/`. The version field is `1`; the GUI rejects other
-major versions.
+JSON Schemas live in `schema/`. The version field is `1` or `2`; the GUI rejects
+other major versions. A v2 manifest can add live telemetry, while v1 scenes keep
+working unchanged.
 
 ## Manifest
 
@@ -28,11 +31,16 @@ major versions.
   "terminal": { "name": "V-ATLANTIC", "lat": 33.373586, "lon": -47.955604 },
   "observer": { "name": "OBS", "lat": 41.9028, "lon": 12.4964 },
   "frames": { "count": 150, "pattern": "frames/%06d.json" },
-  "tasks": "tasks.jsonl"
+  "tasks": "tasks.jsonl",
+  "loads": "loads.jsonl",
+  "traffic": "traffic.jsonl",
+  "load": { "metric": "max", "cpu_capacity": 5, "net_capacity": 5 },
+  "default_layers": { "load": true, "traffic": true, "tasks": false }
 }
 ```
 
-`duration_s` is optional and defaults to `frame_count * interval_s`.
+`duration_s` is optional and defaults to `frame_count * interval_s`. `loads`,
+`traffic`, `load` and `default_layers` are optional v2 fields.
 
 ## Frame
 
@@ -82,6 +90,46 @@ Supported events: `spawn`, `hop_start`, `hop_end`, `compute`, `deliver`,
 `complete`, `fail`. `fail` carries `reason` (`TTL_EXPIRED`, `Insufficient Energy
 for CPU`, ...).
 
+The native trace is written by the core simulation:
+
+```bash
+python3 naval_main.py --load-only --run-sim --gui-export \
+  --trace-jsonl result/naval/IN_NETWORK/optimal/tasks.jsonl \
+  --use-case IN_NETWORK
+```
+
+## Load samples (v2)
+
+`loads.jsonl`, one sample per line, sorted by time. Each sample carries the
+satellites **present in that orbital frame**; satellites outside the corridor
+are absent, with no carry-forward.
+
+```jsonl
+{"t":217.0,"frame":108,"satellites":[{"id":"STARLINK-34100","cpu_queue":0,"cpu_service":2,"net_queue":0,"net_service":0,"completed":5,"energy_j":99352.3,"energy_reserved_j":2876.8}]}
+```
+
+The displayed metric is:
+
+```text
+max((cpu_queue + cpu_service) / cpu_capacity,
+    (net_queue + net_service) / net_capacity)
+```
+
+`load.cpu_capacity` and `load.net_capacity` default to 5. The GUI uses the most
+recent sample at or before the current time.
+
+## Traffic events (v2)
+
+`traffic.jsonl`, one real forward per line, sorted by `t0`:
+
+```jsonl
+{"t0":99.78,"t1":99.79,"from":"STARLINK-4425","to":"STARLINK-6122","task":205,"size_mb":2.09,"bandwidth_mbps":2321.0,"duration_s":0.002,"kind":"isl","algo":"GREEDY"}
+```
+
+`kind` is `isl` or `downlink`. The GUI colors recently used links and draws a
+moving wave from `from` to `to` for each active forward; the visual duration is
+stretched to at least 0.35 s.
+
 ## Producing a scene from the simulator
 
 The core repository owns the exporter:
@@ -97,6 +145,17 @@ python tools/export_gui_scene.py \
 
 The exporter converts Skyfield GCRS positions to ITRS (`frame_xyz(itrs)`),
 de-duplicates ISL edges, keeps AP/life metadata and merges the SimPy task trace.
+
+For a v2 run directory:
+
+```bash
+python3 tools/export_gui_scene.py \
+  --run-dir result/naval/IN_NETWORK/optimal \
+  --out ../SECMotionModel-GUI/examples/generated/naval
+```
+
+`--run-dir` reads `gui_run.json`, `gui_state.csv` and `gui_links.csv`, and picks
+up `tasks.jsonl` automatically when it exists in the same directory.
 
 ## Validation
 
