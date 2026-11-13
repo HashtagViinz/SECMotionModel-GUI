@@ -83,8 +83,10 @@ scene arguments, so the GUI can be started with a single command:
 # install once
 ln -sf "$PWD/scripts/run_gui.sh" ~/.local/bin/secgui
 
-secgui                                  # minimal example scene
+secgui                                  # empty workspace with Import panel
+secgui --minimal                        # minimal example scene
 secgui --naval                          # latest naval run (load + traffic)
+secgui --import result/naval/IN_NETWORK/optimal
 secgui --naval --time 10 --camera vessel
 secgui --config data/naval_configurations_AP_optimal.json
 secgui --config data/naval_configurations_AP_optimal.json \
@@ -105,6 +107,13 @@ writes the GUI frames. The GUI itself does no orbital mechanics.
 `result/naval/IN_NETWORK/optimal` and falling back to
 `result/naval/TO_OBSERVER/optimal`. Set `SECGUI_NAVAL_RUN` to choose another
 run, or `SECGUI_NAVAL_SCENE` to open a legacy pre-exported scene instead.
+
+With no scene argument the window opens empty with an **Import scene** panel.
+The panel browses directories, recognizes a scene (`manifest.json`/`scene.json`)
+or a simulation run (`gui_run.json`), and loads it. A raw run is exported to
+`/tmp/secgui-imports` with the core Python exporter before loading; the core is
+found through `SECGUI_CORE` or a sibling `SECMotionModel` checkout. The same
+path can be loaded non-interactively with `--import DIR`.
 
 `--run` exports a simulation directory containing `gui_run.json`,
 `gui_state.csv` and `gui_links.csv`. It adds the real per-satellite load

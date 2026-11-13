@@ -10,6 +10,7 @@ driver, and `--record-script` writes GUI actions back as JSONL.
 | Option | Meaning |
 |---|---|
 | `--scene PATH` | scene manifest (`scene.json` or a directory containing `manifest.json`) |
+| `--import PATH` | scene or run directory loaded at startup; runs are exported first |
 | `--tasks PATH` | task trace JSONL, overrides the manifest |
 | `--script PATH` | JSONL command script, `-` reads stdin |
 | `--output-dir DIR` | base directory for relative screenshot paths |
@@ -59,7 +60,7 @@ Codes: `PARSE_ERROR`, `MISSING_CMD`, `UNKNOWN_COMMAND`, `MISSING_FIELD`,
 
 | JSONL | Effect | GUI control | Shortcut |
 |---|---|---|---|
-| `open` | load scene and optional tasks | command palette | `Ctrl+K` |
+| `open` | load scene and optional tasks | command palette, Import panel | `Ctrl+K` |
 | `play` / `pause` | start/stop playback | timeline toolbar, HUD | `Space` |
 | `seek` | go to `frame` or `time` | timeline scrubber | — |
 | `step` | move by `delta` frames (default 1) | `<` / `>` buttons | `←` / `→` |
@@ -78,6 +79,11 @@ The windowed interface dispatches every widget action through the same
 successful action is appended to `PATH` as a JSONL command, including the
 initial `open`, camera, speed and layer state; replaying that file with
 `--headless --script` reproduces the same screenshots.
+
+Without `--scene`, the window starts empty and shows the **Import scene**
+panel. It browses directories, loads a scene directly, and exports a simulation
+run (`gui_run.json`) through the core Python exporter before loading it. The
+same flow is available non-interactively with `--import DIR`.
 
 ## Live telemetry layers (scene v2)
 

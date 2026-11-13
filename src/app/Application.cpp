@@ -9,11 +9,18 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <map>
+#include <optional>
+#include <system_error>
 #include <utility>
+#include <vector>
 
 #ifdef SECGUI_WINDOW
 #include <GLFW/glfw3.h>
@@ -43,6 +50,150 @@ std::filesystem::path resolveOutputPath(const std::string& outputDir, const std:
 		return path;
 	}
 	return std::filesystem::path(outputDir) / path;
+}
+
+bool isSceneDirectory(const std::filesystem::path& directory) {
+	std::error_code error;
+	return std::filesystem::is_regular_file(directory / "manifest.json", error)
+	    || std::filesystem::is_regular_file(directory / "scene.json", error);
+}
+
+bool isRunDirectory(const std::filesystem::path& directory) {
+	std::error_code error;
+	return std::filesystem::is_regular_file(directory / "gui_run.json", error);
+}
+
+std::string shellQuoted(const std::filesystem::path& path) {
+	std::string value = path.string();
+	std::string escaped;
+	escaped.reserve(value.size() + 2);
+	for (char character : value) {
+		if (character == '"') {
+			escaped.push_back('\\');
+		}
+		escaped.push_back(character);
+	}
+	return "\"" + escaped + "\"";
+}
+
+std::optional<std::filesystem::path> findCoreRoot() {
+	std::error_code error;
+	const auto isCore = [&](const std::filesystem::path& candidate) {
+		return std::filesystem::is_regular_file(
+		           candidate / "tools" / "export_gui_scene.py", error)
+		    && std::filesystem::is_directory(candidate / "data", error);
+	};
+
+	if (const char* configured = std::getenv("SECGUI_CORE");
+	    configured != nullptr && configured[0] != '\0') {
+		const std::filesystem::path candidate(configured);
+		if (isCore(candidate)) {
+			return candidate;
+		}
+	}
+
+	std::filesystem::path directory = std::filesystem::current_path(error);
+	for (int level = 0; level < 6 && !directory.empty(); ++level) {
+		std::vector<std::filesystem::path> candidates{
+			directory,
+			directory / "SECMotionModel",
+			directory.parent_path() / "SECMotionModel",
+		};
+		for (const auto& candidate : candidates) {
+			if (isCore(candidate)) {
+				return candidate;
+			}
+		}
+		const auto parent = directory.parent_path();
+		if (parent == directory) {
+			break;
+		}
+		directory = parent;
+	}
+	return std::nullopt;
+}
+
+std::optional<std::filesystem::path> exportRunScene(
+        const std::filesystem::path& runDirectory, std::string& errorMessage) {
+	const auto core = findCoreRoot();
+	if (!core) {
+		errorMessage = "core repository not found; set SECGUI_CORE to the SECMotionModel path";
+		return std::nullopt;
+	}
+
+	const auto modified = [](const std::filesystem::path& path) {
+		std::error_code error;
+		const auto stamp = std::filesystem::last_write_time(path, error);
+		return error ? std::string("0") : std::to_string(stamp.time_since_epoch().count());
+	};
+	const std::string key = runDirectory.string()
+	                      + "|" + modified(runDirectory / "gui_run.json")
+	                      + "|" + modified(runDirectory / "gui_state.csv")
+	                      + "|" + modified(runDirectory / "gui_links.csv");
+	const auto hash = std::hash<std::string>{}(key);
+	std::error_code error;
+	auto cacheRoot = std::filesystem::temp_directory_path(error);
+	if (error) {
+		error.clear();
+		cacheRoot = std::filesystem::current_path(error) / "secgui-imports";
+	}
+	if (error) {
+		errorMessage = "cannot locate a cache directory: " + error.message();
+		return std::nullopt;
+	}
+	cacheRoot /= "secgui-imports";
+	const auto cache = cacheRoot / ("run-" + std::to_string(hash));
+	if (std::filesystem::is_regular_file(cache / "manifest.json", error)) {
+		return cache;
+	}
+
+	std::filesystem::create_directories(cacheRoot, error);
+	if (error) {
+		errorMessage = "cannot create the import cache: " + error.message();
+		return std::nullopt;
+	}
+
+	std::filesystem::create_directories(cache, error);
+	if (error) {
+		errorMessage = "cannot create the import cache: " + error.message();
+		return std::nullopt;
+	}
+
+	const auto script = *core / "tools" / "export_gui_scene.py";
+	const auto logPath = cache / "export.log";
+	std::vector<std::string> pythons;
+#ifdef _WIN32
+	pythons = {"python", "py -3"};
+#else
+	pythons = {"/usr/bin/python3", "python3", "python"};
+#endif
+#ifdef _WIN32
+	const std::string changeDirectory = "cd /d " + shellQuoted(*core) + " && ";
+#else
+	const std::string changeDirectory = "cd " + shellQuoted(*core) + " && ";
+#endif
+	int status = 1;
+	for (std::size_t index = 0; index < pythons.size(); ++index) {
+		const std::string command = changeDirectory + pythons[index] + " "
+		                          + shellQuoted(script)
+		                          + " --run-dir " + shellQuoted(runDirectory)
+		                          + " --out " + shellQuoted(cache)
+		                          + (index == 0 ? " > " : " >> ")
+		                          + shellQuoted(logPath) + " 2>&1";
+		status = std::system(command.c_str());
+		if (status == 0) {
+			break;
+		}
+	}
+	if (status != 0) {
+		errorMessage = "export failed; see " + logPath.string();
+		return std::nullopt;
+	}
+	if (!std::filesystem::is_regular_file(cache / "manifest.json", error)) {
+		errorMessage = "export produced no manifest; see " + logPath.string();
+		return std::nullopt;
+	}
+	return cache;
 }
 
 Vec3 corrected(const Vec3& value, double factor) {
@@ -1140,11 +1291,6 @@ nlohmann::json Application::commandQuit(const nlohmann::json& payload) {
 
 int Application::runWindowed() {
 #ifdef SECGUI_WINDOW
-	if (args_.scenePath.empty()) {
-		logError("windowed mode requires --scene <manifest>");
-		return 2;
-	}
-
 	glfwSetErrorCallback([](int code, const char* description) {
 		logError("glfw error " + std::to_string(code) + ": "
 		         + (description != nullptr ? description : "unknown"));
@@ -1247,33 +1393,35 @@ int Application::runWindowed() {
 		return 4;
 	}
 
-	try {
-		loadScene(args_.scenePath);
-	} catch (const std::exception& error) {
-		logError(std::string("scene loading failed: ") + error.what());
-		return 3;
-	}
-	if (args_.cameraMode.empty()) {
-		camera_.mode = "vessel";
-	}
-	applyInitialState();
-	buildEarthGrid();
-	if (!args_.recordScriptPath.empty()) {
-		recordCommand("open", nlohmann::json{{"scene", args_.scenePath}});
-		recordCommand("camera", nlohmann::json{
-			{"mode", camera_.mode},
-			{"target", camera_.target},
-			{"distance_km", camera_.distanceKm},
-			{"yaw_deg", camera_.yawDeg},
-			{"pitch_deg", camera_.pitchDeg},
-		});
-		recordCommand("speed", nlohmann::json{{"value", speed_}});
-		for (const char* name : {"grid", "isl", "dome", "route", "satellites", "load", "traffic", "tasks"}) {
-			recordCommand("layer", nlohmann::json{
-				{"name", name}, {"visible", layerEnabled(name, true)}});
+	if (!args_.scenePath.empty()) {
+		try {
+			loadScene(args_.scenePath);
+		} catch (const std::exception& error) {
+			logError(std::string("scene loading failed: ") + error.what());
+			return 3;
 		}
-		if (sceneTimeS_ > 0.0) {
-			recordCommand("seek", nlohmann::json{{"time", sceneTimeS_}});
+		if (args_.cameraMode.empty()) {
+			camera_.mode = "vessel";
+		}
+		applyInitialState();
+		buildEarthGrid();
+		if (!args_.recordScriptPath.empty()) {
+			recordCommand("open", nlohmann::json{{"scene", args_.scenePath}});
+			recordCommand("camera", nlohmann::json{
+				{"mode", camera_.mode},
+				{"target", camera_.target},
+				{"distance_km", camera_.distanceKm},
+				{"yaw_deg", camera_.yawDeg},
+				{"pitch_deg", camera_.pitchDeg},
+			});
+			recordCommand("speed", nlohmann::json{{"value", speed_}});
+			for (const char* name : {"grid", "isl", "dome", "route", "satellites", "load", "traffic", "tasks"}) {
+				recordCommand("layer", nlohmann::json{
+					{"name", name}, {"visible", layerEnabled(name, true)}});
+			}
+			if (sceneTimeS_ > 0.0) {
+				recordCommand("seek", nlohmann::json{{"time", sceneTimeS_}});
+			}
 		}
 	}
 
@@ -1363,6 +1511,113 @@ int Application::runWindowed() {
 			statusMessage = "screenshot saved to " + args_.outputDir;
 		}
 	};
+
+	struct ImportEntry {
+		std::filesystem::path path;
+		std::string name;
+		bool scene = false;
+		bool run = false;
+	};
+	bool showImport = !scene_;
+	std::filesystem::path importPath = std::filesystem::current_path();
+	char importPathBuffer[1024] = {};
+	std::snprintf(importPathBuffer, sizeof(importPathBuffer), "%s",
+	              importPath.string().c_str());
+	std::string importStatus;
+	std::vector<ImportEntry> importEntries;
+	bool importListingDirty = true;
+
+	const auto setImportPath = [&](const std::filesystem::path& path) {
+		std::error_code error;
+		importPath = std::filesystem::absolute(path, error);
+		if (error) {
+			importPath = path;
+		}
+		std::snprintf(importPathBuffer, sizeof(importPathBuffer), "%s",
+		              importPath.string().c_str());
+		importListingDirty = true;
+	};
+
+	const auto openImport = [&](const std::filesystem::path& candidate) {
+		try {
+			std::filesystem::path target = candidate;
+			std::error_code error;
+			if (std::filesystem::is_regular_file(target, error)) {
+				target = target.parent_path();
+			}
+			if (isSceneDirectory(target)) {
+				std::error_code manifestError;
+				std::filesystem::path manifest = target / "manifest.json";
+				if (!std::filesystem::is_regular_file(manifest, manifestError)) {
+					manifest = target / "scene.json";
+				}
+				loadScene(manifest);
+				showImport = false;
+				importStatus = "Loaded " + target.string();
+				recordCommand("open", nlohmann::json{{"scene", manifest.string()}});
+				return true;
+			}
+			if (isRunDirectory(target)) {
+				importStatus = "Exporting " + target.string() + " ...";
+				std::string exportError;
+				const auto scene = exportRunScene(target, exportError);
+				if (!scene) {
+					throw std::runtime_error(exportError);
+				}
+				loadScene(*scene);
+				showImport = false;
+				importStatus = "Loaded " + scene->string();
+				recordCommand("open", nlohmann::json{{"scene", scene->string()}});
+				return true;
+			}
+			throw std::runtime_error(
+				"no manifest.json/scene.json or gui_run.json in " + target.string());
+		} catch (const std::exception& error) {
+			logWarn("import failed: " + std::string(error.what()));
+			importStatus = error.what();
+			return false;
+		}
+	};
+
+	const auto refreshImportListing = [&]() {
+		importEntries.clear();
+		std::error_code error;
+		std::filesystem::directory_iterator iterator(importPath, error);
+		const std::filesystem::directory_iterator end;
+		for (; !error && iterator != end; iterator.increment(error)) {
+			std::error_code typeError;
+			if (!iterator->is_directory(typeError)) {
+				continue;
+			}
+			const auto path = iterator->path();
+			const std::string name = path.filename().string();
+			if (name.empty() || name.front() == '.') {
+				continue;
+			}
+			ImportEntry entry;
+			entry.path = path;
+			entry.name = name;
+			entry.scene = isSceneDirectory(path);
+			entry.run = isRunDirectory(path);
+			importEntries.push_back(std::move(entry));
+			if (importEntries.size() >= 300) {
+				break;
+			}
+		}
+		std::sort(importEntries.begin(), importEntries.end(),
+		          [](const ImportEntry& left, const ImportEntry& right) {
+			          return left.name < right.name;
+		          });
+		if (error) {
+			importStatus = "Cannot list " + importPath.string() + ": " + error.message();
+		}
+		importListingDirty = false;
+	};
+
+	if (!args_.importPath.empty() && args_.scenePath.empty()) {
+		setImportPath(args_.importPath);
+		openImport(args_.importPath);
+	}
 
 	logInfo("window ready: " + std::to_string(width) + "x" + std::to_string(height)
 	        + " backend=" + gpu_.backendName + " adapter=" + gpu_.adapterName);
@@ -1615,6 +1870,10 @@ int Application::runWindowed() {
 			ImGui::TextDisabled("scroll / two-finger");
 			ImGui::Text("GPU     %s / %s", gpu_.adapterName.c_str(), gpu_.backendName.c_str());
 			ImGui::Separator();
+			if (ImGui::Button("Import scene...")) {
+				showImport = true;
+			}
+			ImGui::SameLine();
 			if (ImGui::Button("Screenshot [F12]")) {
 				takeScreenshot();
 			}
@@ -1909,6 +2168,102 @@ int Application::runWindowed() {
 					             IM_COL32(170, 195, 225, 210), false);
 				}
 			}
+		}
+
+		if (showImport) {
+			ImGui::SetNextWindowSize(ImVec2(760.0f, 520.0f), ImGuiCond_Appearing);
+			ImGui::SetNextWindowPos(
+				ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f),
+				ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+			if (ImGui::Begin("Import scene", &showImport)) {
+				ImGui::TextWrapped(
+					"Open a scene directory (manifest.json/scene.json) or a "
+					"simulation run directory (gui_run.json). A run is exported "
+					"with the core Python exporter before loading.");
+				ImGui::Spacing();
+				ImGui::TextDisabled("Directory");
+				ImGui::SetNextItemWidth(-90.0f);
+				ImGui::InputText("##import-path", importPathBuffer,
+				                 sizeof(importPathBuffer));
+				if (ImGui::IsItemDeactivatedAfterEdit()) {
+					setImportPath(importPathBuffer);
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Go##import")) {
+					setImportPath(importPathBuffer);
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Parent##import")) {
+					setImportPath(importPath.parent_path());
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Home##import")) {
+					const char* home = std::getenv("HOME");
+					if (home == nullptr) {
+						home = std::getenv("USERPROFILE");
+					}
+					if (home != nullptr) {
+						setImportPath(home);
+					}
+				}
+
+				if (importListingDirty) {
+					refreshImportListing();
+				}
+				const bool currentScene = isSceneDirectory(importPath);
+				const bool currentRun = isRunDirectory(importPath);
+				if (currentScene) {
+					ImGui::TextColored(ImVec4(0.5f, 1.0f, 0.5f, 1.0f),
+					                   "Scene detected: manifest.json/scene.json");
+				} else if (currentRun) {
+					ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.35f, 1.0f),
+					                   "Run detected: gui_run.json (will export)");
+				} else {
+					ImGui::TextDisabled("No scene/run metadata in this directory");
+				}
+
+				ImGui::BeginChild("##import-list", ImVec2(0.0f, 280.0f),
+				                  ImGuiChildFlags_Borders);
+				if (importEntries.empty()) {
+					ImGui::TextDisabled("(no subdirectories)");
+				}
+				for (const ImportEntry& entry : importEntries) {
+					if (entry.scene) {
+						ImGui::TextColored(ImVec4(0.5f, 1.0f, 0.5f, 1.0f), "[scene]");
+					} else if (entry.run) {
+						ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.35f, 1.0f), "[run]");
+					} else {
+						ImGui::TextDisabled("[dir]");
+					}
+					ImGui::SameLine();
+					const bool selected = entry.path == importPath;
+					if (ImGui::Selectable(entry.name.c_str(), selected,
+					                      ImGuiSelectableFlags_AllowDoubleClick)) {
+						setImportPath(entry.path);
+						if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)
+						    && (entry.scene || entry.run)) {
+							openImport(entry.path);
+						}
+					}
+				}
+				ImGui::EndChild();
+
+				if (ImGui::Button("Open this directory")) {
+					openImport(importPath);
+				}
+				ImGui::SameLine();
+				if (scene_) {
+					ImGui::TextDisabled("Current scene: %s",
+					                    scene_->manifestPath.filename().string().c_str());
+				} else {
+					ImGui::TextDisabled("No scene loaded");
+				}
+				if (!importStatus.empty()) {
+					ImGui::Separator();
+					ImGui::TextWrapped("%s", importStatus.c_str());
+				}
+			}
+			ImGui::End();
 		}
 
 		ImGui::Render();

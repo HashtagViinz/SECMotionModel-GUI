@@ -7,6 +7,7 @@ namespace secgui {
 
 struct Args {
 	std::string scenePath;
+	std::string importPath;        // scene/run directory loaded at startup
 	std::string tasksPath;
 	std::string scriptPath;        // "-" reads from stdin
 	std::string screenshotPath;

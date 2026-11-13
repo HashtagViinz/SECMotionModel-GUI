@@ -2,7 +2,8 @@
 #
 # Convenience launcher for the SECMotionModel GUI.
 #
-#   secgui                  minimal scene
+#   secgui                  empty workspace with the import panel
+#   secgui --minimal        minimal example scene
 #   secgui --naval          latest naval run (load + traffic), or a legacy scene
 #   secgui path/scene.json  explicit scene, optional tasks as second argument
 #   secgui --backend vulkan extra flags are forwarded to the application
@@ -25,14 +26,15 @@ usage() {
 	cat <<'EOF'
 Usage: secgui [options] [scene] [tasks]
 
-With no arguments, opens the minimal example scene.
+With no arguments, opens an empty workspace with the import panel.
 
-  --minimal          use examples/minimal (default)
+  --minimal          open examples/minimal directly
   --naval            open the latest naval run (load + traffic), or an
                      exported v1/v2 scene if no run is available
   --config <json>    export a core configurations JSON and open it
   --trace <jsonl>    optional task trace to use with --config
   --run <dir>        export a simulation run with load and traffic telemetry
+  --import <dir>     load a scene/run directory at startup (forwarded to GUI)
   -h, --help         show this help
 
 Any other argument is forwarded to secmotion-gui. A bare first argument is
@@ -42,6 +44,8 @@ directory first, then against the core repository.
 
 Examples:
   secgui
+  secgui --minimal
+  secgui --import result/naval/IN_NETWORK/optimal
   secgui --naval
   secgui --config data/naval_configurations_AP_optimal.json
   secgui --config data/naval_configurations_AP_optimal.json \
@@ -204,7 +208,7 @@ find_binary() {
 	return 1
 }
 
-mode="minimal"
+mode="import"
 filtered=()
 config_path=""
 trace_path=""
@@ -362,7 +366,7 @@ if ! $has_scene; then
 			fi
 			filtered=("${naval_args[@]}" --camera vessel --target V-ATLANTIC "${filtered[@]}")
 		fi
-	else
+	elif [ "$mode" = "minimal" ]; then
 		filtered=(--scene "$REPO/examples/minimal/scene.json" --tasks "$REPO/examples/minimal/tasks.jsonl" "${filtered[@]}")
 	fi
 fi

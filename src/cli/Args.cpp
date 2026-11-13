@@ -71,6 +71,8 @@ Args parseArgs(int argc, char** argv) {
 			args.quiet = true;
 		} else if (token == "--scene") {
 			args.scenePath = nextValue(token);
+		} else if (token == "--import") {
+			args.importPath = nextValue(token);
 		} else if (token == "--tasks") {
 			args.tasksPath = nextValue(token);
 		} else if (token == "--script") {
@@ -128,6 +130,7 @@ std::string helpText() {
 	    << "Usage: secmotion-gui [options]\n\n"
 	    << "Scene and script:\n"
 	    << "  --scene PATH           scene manifest (scene.json or a scene directory)\n"
+	    << "  --import PATH          scene/run directory loaded at startup\n"
 	    << "  --tasks PATH           tasks JSONL (overrides manifest)\n"
 	    << "  --script PATH          JSONL command script ('-' reads stdin)\n"
 	    << "  --output-dir DIR       directory for generated files (default: .)\n"
