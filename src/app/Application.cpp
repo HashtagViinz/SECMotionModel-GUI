@@ -1311,6 +1311,14 @@ int Application::runWindowed() {
 		glfwTerminate();
 		return 4;
 	}
+	glfwSetWindowSizeLimits(window, 960, 540, GLFW_DONT_CARE, GLFW_DONT_CARE);
+	if (GLFWmonitor* monitor = glfwGetPrimaryMonitor()) {
+		if (const GLFWvidmode* mode = glfwGetVideoMode(monitor)) {
+			glfwSetWindowPos(window,
+			                 (mode->width - initialWidth) / 2,
+			                 (mode->height - initialHeight) / 2);
+		}
+	}
 
 	struct WindowCleanup {
 		GLFWwindow* window = nullptr;
@@ -1881,6 +1889,10 @@ int Application::runWindowed() {
 			if (ImGui::Button("Reset [R]")) {
 				runCommand("reset", nlohmann::json::object());
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("Reset window")) {
+				glfwSetWindowSize(window, 1280, 720);
+			}
 			if (!statusMessage.empty()) {
 				ImGui::Separator();
 				ImGui::TextWrapped("%s", statusMessage.c_str());
@@ -2171,10 +2183,10 @@ int Application::runWindowed() {
 		}
 
 		if (showImport) {
-			ImGui::SetNextWindowSize(ImVec2(760.0f, 520.0f), ImGuiCond_Appearing);
+			ImGui::SetNextWindowSize(ImVec2(760.0f, 520.0f), ImGuiCond_Always);
 			ImGui::SetNextWindowPos(
 				ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f),
-				ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+				ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 			if (ImGui::Begin("Import scene", &showImport)) {
 				ImGui::TextWrapped(
 					"Open a scene directory (manifest.json/scene.json) or a "
