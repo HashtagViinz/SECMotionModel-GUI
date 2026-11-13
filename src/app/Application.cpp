@@ -1454,7 +1454,10 @@ int Application::runWindowed() {
 		// Two-finger touchpad scrolling and mouse wheels both arrive as
 		// MouseWheel. Compositors that translate pinch into Ctrl+wheel take
 		// the same path, so pinch-to-zoom works where the platform exposes it.
-		if (!io.WantCaptureMouse && io.MouseWheel != 0.0f) {
+		// Zoom even when the cursor is over a HUD panel: none of the panels
+		// scrolls vertically, and this makes trackpad gestures much easier to
+		// hit. Text fields and the command palette keep their own scrolling.
+		if (!io.WantTextInput && !showPalette && io.MouseWheel != 0.0f) {
 			zoomBy(static_cast<double>(io.MouseWheel));
 		}
 
@@ -1588,6 +1591,16 @@ int Application::runWindowed() {
 				ImGui::Text("Traffic %zu events", traffic_.size());
 			}
 			ImGui::Text("Camera  %s -> %s", camera_.mode.c_str(), camera_.target.c_str());
+			ImGui::Text("Zoom    %.0f km", camera_.distanceKm);
+			if (ImGui::SmallButton("Zoom -##hud")) {
+				zoomBy(1.0);
+			}
+			ImGui::SameLine();
+			if (ImGui::SmallButton("Zoom +##hud")) {
+				zoomBy(-1.0);
+			}
+			ImGui::SameLine();
+			ImGui::TextDisabled("scroll / two-finger");
 			ImGui::Text("GPU     %s / %s", gpu_.adapterName.c_str(), gpu_.backendName.c_str());
 			ImGui::Separator();
 			if (ImGui::Button("Screenshot [F12]")) {
