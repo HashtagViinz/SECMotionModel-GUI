@@ -111,9 +111,16 @@ run, or `SECGUI_NAVAL_SCENE` to open a legacy pre-exported scene instead.
 
 With no arguments `secgui` opens the **TLE base scene**: every satellite in
 the core `data/tle_data.txt` catalog around the globe. The launcher generates
-it with `tools/export_base_scene.py` on first use (about 16 s, 30 MB) and caches
+it with `tools/export_base_scene.py` on first use (about 30 s, 58 MB) and caches
 it under `~/.cache/secgui/base`; later launches are immediate. Override the
 location with `SECGUI_BASE_SCENE`.
+
+Inside the window, **Scenarios...** lists every known simulation with an
+**Open** button: the TLE base scene, the naval runs under
+`result/naval/*/*`, and previously exported scenes under
+`~/.cache/secgui/runs`. Raw runs are exported on first open; **Refresh**
+rescans the directories and **Import directory...** opens the free-form
+browser.
 
 `secgui --empty` (or `secgui --import DIR`) uses the **Import scene** panel
 instead. The panel browses directories, recognizes a scene

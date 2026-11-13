@@ -85,6 +85,10 @@ panel. It browses directories, loads a scene directly, and exports a simulation
 run (`gui_run.json`) through the core Python exporter before loading it. The
 same flow is available non-interactively with `--import DIR`.
 
+The HUD **Scenarios...** button opens a list of known simulations: the TLE base
+scene, the naval runs found under `result/naval/*/*`, and cached exported
+scenes. Each row has an **Open** button; **Refresh** rescans the directories.
+
 ## Live telemetry layers (scene v2)
 
 A v2 manifest can reference `loads.jsonl` and `traffic.jsonl`. They are loaded

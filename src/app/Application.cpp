@@ -76,6 +76,30 @@ std::string shellQuoted(const std::filesystem::path& path) {
 	return "\"" + escaped + "\"";
 }
 
+std::filesystem::path defaultCacheRoot() {
+	if (const char* configured = std::getenv("SECGUI_CACHE_DIR");
+	    configured != nullptr && configured[0] != '\0') {
+		return configured;
+	}
+	if (const char* xdg = std::getenv("XDG_CACHE_HOME");
+	    xdg != nullptr && xdg[0] != '\0') {
+		return std::filesystem::path(xdg) / "secgui";
+	}
+	const char* home = std::getenv("HOME");
+	if (home == nullptr) {
+		home = std::getenv("USERPROFILE");
+	}
+	return std::filesystem::path(home != nullptr ? home : ".") / ".cache" / "secgui";
+}
+
+std::filesystem::path defaultBaseSceneDirectory() {
+	if (const char* configured = std::getenv("SECGUI_BASE_SCENE");
+	    configured != nullptr && configured[0] != '\0') {
+		return configured;
+	}
+	return defaultCacheRoot() / "base";
+}
+
 std::optional<std::filesystem::path> findCoreRoot() {
 	std::error_code error;
 	const auto isCore = [&](const std::filesystem::path& candidate) {
@@ -1526,7 +1550,15 @@ int Application::runWindowed() {
 		bool scene = false;
 		bool run = false;
 	};
+	struct ScenarioEntry {
+		std::string label;
+		std::string detail;
+		std::filesystem::path path;
+	};
 	bool showImport = !scene_;
+	bool showScenarios = false;
+	bool scenariosDirty = true;
+	std::vector<ScenarioEntry> scenarios;
 	std::filesystem::path importPath = std::filesystem::current_path();
 	char importPathBuffer[1024] = {};
 	std::snprintf(importPathBuffer, sizeof(importPathBuffer), "%s",
@@ -1622,10 +1654,93 @@ int Application::runWindowed() {
 		importListingDirty = false;
 	};
 
+	const auto refreshScenarios = [&]() {
+		scenarios.clear();
+		const auto base = defaultBaseSceneDirectory();
+		if (isSceneDirectory(base)) {
+			scenarios.push_back({
+				"TLE base scene",
+				"All satellites from data/tle_data.txt, orbit view",
+				base,
+			});
+		}
+
+		if (const auto core = findCoreRoot()) {
+			std::error_code error;
+			const auto naval = *core / "result" / "naval";
+			std::filesystem::directory_iterator useCase(naval, error);
+			const std::filesystem::directory_iterator end;
+			for (; !error && useCase != end; useCase.increment(error)) {
+				std::error_code typeError;
+				if (!useCase->is_directory(typeError)) {
+					continue;
+				}
+				std::error_code modeError;
+				std::filesystem::directory_iterator mode(useCase->path(), modeError);
+				for (; !modeError && mode != end; mode.increment(modeError)) {
+					if (!mode->is_directory(modeError)) {
+						continue;
+					}
+					const auto runDirectory = mode->path();
+					if (!isRunDirectory(runDirectory)) {
+						continue;
+					}
+					std::string detail = "Simulation run: load + traffic";
+					try {
+						std::ifstream input(runDirectory / "gui_run.json");
+						nlohmann::json meta;
+						input >> meta;
+						const double duration = meta.value("duration_s", 0.0);
+						const double sample = meta.value("sample_interval_s", 0.0);
+						if (duration > 0.0) {
+							detail += " | " + std::to_string(static_cast<int>(duration)) + " s";
+						}
+						if (sample > 0.0) {
+							detail += " | samples " + std::to_string(sample) + " s";
+						}
+					} catch (const std::exception&) {
+					}
+					scenarios.push_back({
+						useCase->path().filename().string() + " / "
+							+ runDirectory.filename().string(),
+						detail,
+						runDirectory,
+					});
+				}
+			}
+		}
+
+		const auto cacheRuns = defaultCacheRoot() / "runs";
+		std::error_code cacheError;
+		std::filesystem::directory_iterator cached(cacheRuns, cacheError);
+		const std::filesystem::directory_iterator end;
+		for (; !cacheError && cached != end; cached.increment(cacheError)) {
+			std::error_code typeError;
+			if (!cached->is_directory(typeError) || !isSceneDirectory(cached->path())) {
+				continue;
+			}
+			scenarios.push_back({
+				"Cached: " + cached->path().filename().string(),
+				"Previously exported scene",
+				cached->path(),
+			});
+		}
+
+		if (scenarios.size() > 1) {
+			std::stable_sort(scenarios.begin() + 1, scenarios.end(),
+			                 [](const ScenarioEntry& left, const ScenarioEntry& right) {
+				                 return left.label < right.label;
+			                 });
+		}
+		scenariosDirty = false;
+		logDebug("discovered " + std::to_string(scenarios.size()) + " scenarios");
+	};
+
 	if (!args_.importPath.empty() && args_.scenePath.empty()) {
 		setImportPath(args_.importPath);
 		openImport(args_.importPath);
 	}
+	refreshScenarios();
 
 	logInfo("window ready: " + std::to_string(width) + "x" + std::to_string(height)
 	        + " backend=" + gpu_.backendName + " adapter=" + gpu_.adapterName);
@@ -1878,6 +1993,11 @@ int Application::runWindowed() {
 			ImGui::TextDisabled("scroll / two-finger");
 			ImGui::Text("GPU     %s / %s", gpu_.adapterName.c_str(), gpu_.backendName.c_str());
 			ImGui::Separator();
+			if (ImGui::Button("Scenarios...")) {
+				showScenarios = true;
+				scenariosDirty = true;
+			}
+			ImGui::SameLine();
 			if (ImGui::Button("Import scene...")) {
 				showImport = true;
 			}
@@ -2180,6 +2300,56 @@ int Application::runWindowed() {
 					             IM_COL32(170, 195, 225, 210), false);
 				}
 			}
+		}
+
+		if (showScenarios) {
+			ImGui::SetNextWindowSize(ImVec2(760.0f, 520.0f), ImGuiCond_Always);
+			ImGui::SetNextWindowPos(
+				ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f),
+				ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+			if (ImGui::Begin("Scenarios", &showScenarios)) {
+				ImGui::TextWrapped(
+					"Choose a simulation. Raw runs are exported with the core "
+					"Python exporter the first time; exported scenes load directly.");
+				if (ImGui::Button("Refresh")) {
+					scenariosDirty = true;
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Import directory...")) {
+					showImport = true;
+					showScenarios = false;
+				}
+				ImGui::Separator();
+				if (scenariosDirty) {
+					refreshScenarios();
+				}
+				ImGui::BeginChild("##scenario-list", ImVec2(0.0f, 360.0f),
+				                  ImGuiChildFlags_Borders);
+				if (scenarios.empty()) {
+					ImGui::TextDisabled(
+						"No known scenarios. Use Import directory or start a run.");
+				}
+				for (std::size_t index = 0; index < scenarios.size(); ++index) {
+					const ScenarioEntry& entry = scenarios[index];
+					ImGui::PushID(static_cast<int>(index));
+					ImGui::TextColored(ImVec4(0.55f, 0.82f, 1.0f, 1.0f),
+					                   "%s", entry.label.c_str());
+					ImGui::SameLine(ImGui::GetWindowWidth() - 96.0f);
+					if (ImGui::Button("Open")) {
+						if (openImport(entry.path)) {
+							showScenarios = false;
+						}
+					}
+					ImGui::TextDisabled("%s", entry.detail.c_str());
+					ImGui::Separator();
+					ImGui::PopID();
+				}
+				ImGui::EndChild();
+				if (!importStatus.empty()) {
+					ImGui::TextWrapped("%s", importStatus.c_str());
+				}
+			}
+			ImGui::End();
 		}
 
 		if (showImport) {
