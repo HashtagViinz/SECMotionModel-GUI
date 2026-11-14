@@ -65,13 +65,24 @@ field.
 
 ### Windows
 
-`docker build -f Dockerfile.windows --target test` passes. The Wine log shows:
+`docker build -f Dockerfile.windows --target test` passes on the final commit.
+The Wine log shows:
 
 ```text
 [info] WebGPU ready: backend=vulkan adapter=llvmpipe (LLVM 15.0.6, 256 bits)
 [info] Earth texture decoded: 1024x512 (3 channels)
 windows smoke test passed
 ```
+
+Headless screenshots from the final `.exe` reproduce the Linux content:
+
+- TLE base scene: `points: 10629`, `lines: 768`, `mean: 51.89`;
+- naval frame 30: `points: 465`, `lines: 6656`, `mean: 39.40`, identical line
+  and point counts to Linux.
+
+The Windows hashes differ from Linux because lavapipe and the native Vulkan
+driver rasterize the last bit differently, as documented in
+`docs/testing.md`.
 
 ## Reproduce
 
