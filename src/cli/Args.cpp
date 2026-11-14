@@ -101,6 +101,11 @@ Args parseArgs(int argc, char** argv) {
 			args.time = parseDouble(token, nextValue(token));
 		} else if (token == "--speed") {
 			args.speed = parseDouble(token, nextValue(token));
+		} else if (token == "--isl-density") {
+			args.islDensity = parseDouble(token, nextValue(token));
+			if (args.islDensity < 0.0 || args.islDensity > 1.0) {
+				throw std::runtime_error("option --isl-density must be between 0 and 1");
+			}
 		} else if (token == "--layer") {
 			args.layers.push_back(nextValue(token));
 		} else if (token == "--log-level") {
@@ -146,7 +151,8 @@ std::string helpText() {
 	    << "  --backend NAME         auto|vulkan|d3d12|metal|opengl|null\n"
 	    << "  --camera MODE          orbit|topdown|vessel|satellite|free\n"
 	    << "  --target NAME          camera target entity\n"
-	    << "  --layer NAME=on|off    initial layer state\n\n"
+	    << "  --layer NAME=on|off    initial layer state\n"
+	    << "  --isl-density N        ISL link density, 0..1 (default: 0.6)\n\n"
 	    << "Diagnostics:\n"
 	    << "  --validate-only        validate the scene and exit (no GPU)\n"
 	    << "  --strict               fail on the first invalid command\n"

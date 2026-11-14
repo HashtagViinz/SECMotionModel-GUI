@@ -13,6 +13,7 @@ nlohmann::json CommandBus::dispatch(const std::string& command, const nlohmann::
 	if (command == "speed") return application_.commandSpeed(payload);
 	if (command == "camera") return application_.commandCamera(payload);
 	if (command == "layer") return application_.commandLayer(payload);
+	if (command == "isl") return application_.commandIsl(payload);
 	if (command == "select") return application_.commandSelect(payload);
 	if (command == "reset") return application_.commandReset(payload);
 	if (command == "state") return application_.commandState(payload);

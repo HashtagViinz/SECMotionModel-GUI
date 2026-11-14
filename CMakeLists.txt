@@ -176,6 +176,7 @@ set(SECGUI_SOURCES
 	src/gpu/GpuContext.cpp
 	src/gpu/WebGpuCpp.cpp
 	src/render/Renderer.cpp
+	src/render/EarthTextureData.cpp
 	src/render/Camera.cpp
 	src/scene/FrameData.cpp
 	src/scene/SceneLoader.cpp
@@ -183,6 +184,7 @@ set(SECGUI_SOURCES
 	src/util/Log.cpp
 	src/util/Png.cpp
 	src/util/Sha256.cpp
+	src/util/StbImage.cpp
 )
 
 add_executable(secmotion-gui ${SECGUI_SOURCES})

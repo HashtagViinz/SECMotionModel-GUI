@@ -15,5 +15,9 @@ examples/generated/
 screenshots/
 *.log
 
+# Python tooling
+__pycache__/
+*.pyc
+
 # Local agent media (never commit binaries here, use the agent-media branch)
 agent-media/

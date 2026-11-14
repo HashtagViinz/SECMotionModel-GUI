@@ -11,7 +11,7 @@
     "cmd": {
       "enum": [
         "open", "seek", "step", "play", "pause", "speed", "camera", "layer",
-        "select", "reset", "state", "screenshot", "validate", "quit"
+        "isl", "select", "reset", "state", "screenshot", "validate", "quit"
       ]
     },
     "scene": { "type": "string" },
@@ -24,6 +24,7 @@
     "target": { "type": "string" },
     "name": { "type": "string" },
     "visible": { "type": "boolean" },
+    "density": { "type": "number", "minimum": 0, "maximum": 1 },
     "entity": { "type": "string" },
     "path": { "type": "string" },
     "width": { "type": "integer", "minimum": 1 },

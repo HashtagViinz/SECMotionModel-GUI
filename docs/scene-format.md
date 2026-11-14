@@ -42,6 +42,12 @@ working unchanged.
 `duration_s` is optional and defaults to `frame_count * interval_s`. `loads`,
 `traffic`, `load` and `default_layers` are optional v2 fields.
 
+`default_layers` may contain any GUI layer name (`globe`, `atmosphere`, `grid`,
+`isl`, `dome`, `route`, `satellites`, `load`, `traffic`, `tasks`). Unknown
+names are stored but have no effect. The v1/v2 scenes that predate the textured
+globe keep working: `globe` and `atmosphere` default to on, and the existing
+`load`/`traffic` flags are unchanged.
+
 ## Frame
 
 Positions are Earth-fixed ECEF/ITRS kilometres (`ecef_km`). The terminal and the

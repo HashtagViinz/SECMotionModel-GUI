@@ -56,6 +56,20 @@ exits with code `0` and exercises GLFW, the WebGPU surface, Dear ImGui and the
 full render loop. The Docker Linux build runs this test on both the native
 binary and the packaged AppImage.
 
+## Globe and ISL LOD checks
+
+Issue #9 adds a textured globe, an atmosphere shell and ISL level of detail.
+Useful headless assertions:
+
+- `--scene ~/.cache/secgui/base --screenshot base.png` reports
+  `points: 10629`, `nonblank: true` and a visible textured globe;
+- `--layer globe=off` still succeeds and returns to the wireframe view;
+- `--layer atmosphere=off` removes the halo without changing the line count;
+- `--isl-density 0` and `--isl-density 1` on a naval run must report different
+  `lines` counts, while AP and active traffic edges remain visible;
+- the v1 `examples/minimal` and v2 `examples/live` scenes still render, so the
+  `load`/`traffic` layers are not regressed.
+
 ## Golden images
 
 - `examples/minimal/golden/` contains Linux/lavapipe references.

@@ -35,6 +35,7 @@ public:
 	nlohmann::json commandSpeed(const nlohmann::json& payload);
 	nlohmann::json commandCamera(const nlohmann::json& payload);
 	nlohmann::json commandLayer(const nlohmann::json& payload);
+	nlohmann::json commandIsl(const nlohmann::json& payload);
 	nlohmann::json commandSelect(const nlohmann::json& payload);
 	nlohmann::json commandReset(const nlohmann::json& payload);
 	nlohmann::json commandState(const nlohmann::json& payload);
@@ -77,6 +78,7 @@ private:
 	bool playing_ = false;
 	bool quit_ = false;
 	double speed_ = 1.0;
+	double islDensity_ = 0.6;
 	std::string cameraMode_ = "orbit";
 	std::string cameraTarget_;
 	std::map<std::string, bool> layers_;

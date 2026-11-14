@@ -18,6 +18,7 @@
 #include <iostream>
 #include <map>
 #include <optional>
+#include <set>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -240,6 +241,30 @@ Vec3 normalized(const Vec3& value) {
 
 Vec3 cross(const Vec3& a, const Vec3& b) {
 	return Vec3{a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
+
+// Automatic ISL level of detail: the slider controls how many neighbours are
+// kept per satellite, while the camera distance scales the budget down when
+// the whole constellation is in view.
+int islLinkBudget(double density, double cameraDistanceInRadii) {
+	const double distanceScale = cameraDistanceInRadii <= 1.8 ? 1.0
+		: (cameraDistanceInRadii <= 3.0 ? 0.65 : 0.35);
+	const double base = 4.0 + 36.0 * std::clamp(density, 0.0, 1.0);
+	return std::clamp(static_cast<int>(std::lround(base * distanceScale)), 2, 64);
+}
+
+Vec3 keyLightDirection(const CameraFrame& cameraFrame, double earthRadiusKm) {
+	const double radius = std::max(1.0, earthRadiusKm);
+	Vec3 light = cameraFrame.eye;
+	if (light.norm() < radius * 1e-6) {
+		light = Vec3{0.0, 0.0, 1.0};
+	}
+	// Offset the key light towards the upper-right of the view so the globe
+	// keeps readable relief instead of looking flat.
+	light.x += cameraFrame.right.x * radius * 0.45 + cameraFrame.up.x * radius * 0.65;
+	light.y += cameraFrame.right.y * radius * 0.45 + cameraFrame.up.y * radius * 0.65;
+	light.z += cameraFrame.right.z * radius * 0.45 + cameraFrame.up.z * radius * 0.65;
+	return normalized(light);
 }
 
 void addCircleOnSphere(std::vector<LineVertex>& vertices, const Vec3& centre,
@@ -585,6 +610,7 @@ void Application::requireScene() const {
 }
 
 void Application::applyInitialState() {
+	islDensity_ = std::clamp(args_.islDensity, 0.0, 1.0);
 	if (!args_.cameraMode.empty()) {
 		camera_.mode = args_.cameraMode;
 	}
@@ -847,6 +873,10 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 	frame.cameraRight = cameraFrame.right;
 	frame.cameraUp = cameraFrame.up;
 	frame.cameraEye = cameraFrame.eye;
+	frame.earthRadiusKm = earthRadiusKm_;
+	frame.globeVisible = layerEnabled("globe", true);
+	frame.atmosphereVisible = frame.globeVisible && layerEnabled("atmosphere", true);
+	frame.sunDirection = keyLightDirection(cameraFrame, earthRadiusKm_);
 
 	// Keep billboards at a stable screen size while orbiting and zooming.
 	const double cameraDistance = std::max(1.0, std::sqrt(
@@ -868,59 +898,104 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 	const bool trafficMode = layerEnabled("traffic", false) && !traffic_.empty();
 	std::map<std::string, double> edgeWeights;
 	double maxEdgeWeight = 0.0;
+	std::vector<const TrafficEvent*> activeForwards;
+	std::set<std::string> activeEdges;
 	if (trafficMode) {
 		const double window = 2.0;
 		for (const TrafficEvent& event : traffic_) {
-			if (event.kind != "isl" || event.t1 < sceneTimeS_ - window || event.t0 > sceneTimeS_) {
+			if (event.kind != "isl") {
 				continue;
 			}
-			double& weight = edgeWeights[edgeKey(event.from, event.to)];
-			weight += event.sizeMb;
-			maxEdgeWeight = std::max(maxEdgeWeight, weight);
+			if (event.t1 >= sceneTimeS_ - window && event.t0 <= sceneTimeS_) {
+				double& weight = edgeWeights[edgeKey(event.from, event.to)];
+				weight += event.sizeMb;
+				maxEdgeWeight = std::max(maxEdgeWeight, weight);
+			}
+			const double visualDuration = std::max(event.durationS, 0.35);
+			if (event.t0 <= sceneTimeS_ && sceneTimeS_ <= event.t0 + visualDuration) {
+				activeForwards.push_back(&event);
+				activeEdges.insert(edgeKey(event.from, event.to));
+			}
 		}
 	}
 
-	// Inter-satellite links, de-duplicated.
+	// Inter-satellite links with automatic LOD, de-duplicated. Access-point
+	// links and edges carrying an active forward are always drawn.
 	if (layerEnabled("isl", true)) {
+		const double cameraDistanceInRadii = cameraFrame.eye.norm() / std::max(1.0, earthRadiusKm_);
+		const int budget = islLinkBudget(islDensity_, cameraDistanceInRadii);
+		// Edges are de-duplicated by the lower satellite id, so each satellite
+		// only visits about half of its neighbours here.
+		const int halfBudget = std::max(1, (budget + 1) / 2);
 		for (const SatelliteFrame& satellite : frameData_->satellites) {
+			std::vector<const NeighborRef*> candidates;
 			for (const NeighborRef& neighbor : satellite.neighbors) {
 				if (neighbor.id < satellite.id) {
 					continue;
 				}
-				const auto found = byId.find(neighbor.id);
-				if (found == byId.end()) {
+				if (byId.find(neighbor.id) == byId.end()) {
 					continue;
 				}
+				candidates.push_back(&neighbor);
+			}
+			const auto edgePriority = [&](const NeighborRef* neighbor) {
+				const auto found = byId.find(neighbor->id);
+				const bool apEdge = satellite.isAp
+					|| (found != byId.end() && found->second->isAp);
+				if (activeEdges.count(edgeKey(satellite.id, neighbor->id)) > 0) {
+					return 0;
+				}
+				return apEdge ? 1 : 2;
+			};
+			std::stable_sort(candidates.begin(), candidates.end(),
+			                 [&](const NeighborRef* left, const NeighborRef* right) {
+				const int leftPriority = edgePriority(left);
+				const int rightPriority = edgePriority(right);
+				if (leftPriority != rightPriority) {
+					return leftPriority < rightPriority;
+				}
+				const auto leftWeight = edgeWeights.find(edgeKey(satellite.id, left->id));
+				const auto rightWeight = edgeWeights.find(edgeKey(satellite.id, right->id));
+				const double leftValue = leftWeight != edgeWeights.end() ? leftWeight->second : 0.0;
+				const double rightValue = rightWeight != edgeWeights.end() ? rightWeight->second : 0.0;
+				if (leftValue != rightValue) {
+					return leftValue > rightValue;
+				}
+				return left->id < right->id;
+			});
+			int drawn = 0;
+			for (const NeighborRef* neighbor : candidates) {
+				const int priority = edgePriority(neighbor);
+				if (priority == 2 && drawn >= halfBudget) {
+					break;
+				}
+				const auto found = byId.find(neighbor->id);
 				float r = 0.30f, g = 0.62f, b = 1.0f, a = 0.55f;
 				if (trafficMode && maxEdgeWeight > 0.0) {
-					const auto weight = edgeWeights.find(edgeKey(satellite.id, neighbor.id));
+					const auto weight = edgeWeights.find(edgeKey(satellite.id, neighbor->id));
 					if (weight != edgeWeights.end()) {
 						const auto color = trafficColor(weight->second / maxEdgeWeight);
 						r = color[0]; g = color[1]; b = color[2]; a = color[3];
 					}
+				} else if (priority == 1) {
+					a = 0.7f;
 				}
 				addLine(frame.lines, satellite.ecefKm, found->second->ecefKm, r, g, b, a);
+				++drawn;
 			}
 		}
 	}
 
 	// Active forwards: a short bright segment travelling source -> target.
 	if (trafficMode) {
-		std::vector<const TrafficEvent*> active;
-		for (const TrafficEvent& event : traffic_) {
-			const double visualDuration = std::max(event.durationS, 0.35);
-			if (event.kind == "isl" && event.t0 <= sceneTimeS_
-				&& sceneTimeS_ <= event.t0 + visualDuration) {
-				active.push_back(&event);
-			}
-		}
-		std::sort(active.begin(), active.end(), [](const TrafficEvent* left, const TrafficEvent* right) {
+		std::sort(activeForwards.begin(), activeForwards.end(),
+		          [](const TrafficEvent* left, const TrafficEvent* right) {
 			return left->sizeMb > right->sizeMb;
 		});
-		if (active.size() > 80) {
-			active.resize(80);
+		if (activeForwards.size() > 80) {
+			activeForwards.resize(80);
 		}
-		for (const TrafficEvent* event : active) {
+		for (const TrafficEvent* event : activeForwards) {
 			const auto from = byId.find(event->from);
 			const auto to = byId.find(event->to);
 			if (from == byId.end() || to == byId.end()) {
@@ -1205,6 +1280,18 @@ nlohmann::json Application::commandLayer(const nlohmann::json& payload) {
 	return nlohmann::json{{"name", name}, {"visible", visible}};
 }
 
+nlohmann::json Application::commandIsl(const nlohmann::json& payload) {
+	if (!payload.contains("density") || !payload["density"].is_number()) {
+		throw CommandError("MISSING_FIELD", "'isl' requires a numeric 'density'");
+	}
+	const double density = payload["density"].get<double>();
+	if (density < 0.0 || density > 1.0) {
+		throw CommandError("INVALID_FIELD", "'density' must be between 0 and 1");
+	}
+	islDensity_ = density;
+	return nlohmann::json{{"density", islDensity_}};
+}
+
 nlohmann::json Application::commandSelect(const nlohmann::json& payload) {
 	if (!payload.contains("entity") || !payload["entity"].is_string()) {
 		throw CommandError("MISSING_FIELD", "'select' requires an 'entity'");
@@ -1237,6 +1324,7 @@ nlohmann::json Application::commandState(const nlohmann::json& payload) {
 		{"distance_km", camera_.distanceKm},
 	};
 	result["layers"] = layers_;
+	result["isl_density"] = islDensity_;
 	result["selected"] = selected_;
 	result["backend"] = gpu_.backendName;
 	result["adapter"] = gpu_.adapterName;
@@ -1447,10 +1535,11 @@ int Application::runWindowed() {
 				{"pitch_deg", camera_.pitchDeg},
 			});
 			recordCommand("speed", nlohmann::json{{"value", speed_}});
-			for (const char* name : {"grid", "isl", "dome", "route", "satellites", "load", "traffic", "tasks"}) {
+			for (const char* name : {"grid", "isl", "dome", "route", "satellites", "load", "traffic", "tasks", "globe", "atmosphere"}) {
 				recordCommand("layer", nlohmann::json{
 					{"name", name}, {"visible", layerEnabled(name, true)}});
 			}
+			recordCommand("isl", nlohmann::json{{"density", islDensity_}});
 			if (sceneTimeS_ > 0.0) {
 				recordCommand("seek", nlohmann::json{{"time", sceneTimeS_}});
 			}
@@ -2025,6 +2114,8 @@ int Application::runWindowed() {
 			                        ImGuiCond_Always);
 			if (ImGui::Begin("Layers", &showLayers, ImGuiWindowFlags_AlwaysAutoResize)) {
 				const std::pair<const char*, const char*> layerNames[] = {
+					{"globe", "Textured globe"},
+					{"atmosphere", "Atmosphere"},
 					{"grid", "Earth grid"},
 					{"isl", "Inter-satellite links"},
 					{"dome", "Visibility dome"},
@@ -2042,6 +2133,18 @@ int Application::runWindowed() {
 						runCommand("layer", nlohmann::json{
 							{"name", entry.first}, {"visible", visible}});
 					}
+				}
+				if (layerEnabled("isl", true)) {
+					ImGui::Separator();
+					float density = static_cast<float>(islDensity_);
+					if (ImGui::SliderFloat("ISL density", &density, 0.0f, 1.0f, "%.2f")) {
+						islDensity_ = std::clamp(static_cast<double>(density), 0.0, 1.0);
+					}
+					if (ImGui::IsItemDeactivatedAfterEdit()) {
+						recordCommand("isl", nlohmann::json{{"density", islDensity_}});
+					}
+					ImGui::TextDisabled("0 = sparse  1 = all links");
+					ImGui::TextDisabled("AP and active traffic always drawn");
 				}
 				if (layerEnabled("load", false) && !loads_.empty()) {
 					ImGui::Separator();

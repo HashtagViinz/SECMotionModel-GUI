@@ -11,14 +11,17 @@ The GUI renders LEO satellite motion, inter-satellite links, visibility domes an
 
 > Status: v0.2.0 released for Linux and Windows. Includes the interactive
 > window, timeline, layers, telemetry, command palette and recorder, plus live
-> per-satellite load and link traffic from real simulation runs. Windows is
-> validated under Wine in CI; macOS is out of scope.
+> per-satellite load and link traffic from real simulation runs. The current
+> `main` adds the textured Earth, atmosphere shell and ISL level of detail
+> (issue #9). Windows is validated under Wine in CI; macOS is out of scope.
 
 ## Layout
 
 ```text
 src/         C++ sources (app, cli, scene, render, screenshot, ui, util)
 shaders/     WGSL shaders (embedded in src/render/Renderer.cpp)
+assets/      embedded assets (Earth texture, 1024x512)
+tools/       asset embedding helpers
 schema/      JSON schemas for scene, tasks and command protocol
 examples/    minimal scene, JSONL scripts, golden screenshots
 docs/        command reference, scene format, testing
@@ -152,6 +155,53 @@ click to select an entity.
 See [docs/commands.md](docs/commands.md) for the full JSONL protocol and the
 GUI mapping, and [examples/README.example.md](examples/README.example.md) for a
 guided example.
+
+## Rendering
+
+The globe is a UV sphere textured with an equirectangular Earth map. The
+1024x512 JPEG is embedded in the binary (`assets/earth_1024.jpg`, generated into
+`src/render/EarthTextureData.cpp` by `tools/embed_texture.py`), so the AppImage
+and the Windows `.exe` need no external asset and never download anything at
+runtime. `RGBA8Unorm`, linear filtering and a repeat/clamp sampler keep the
+seam and poles clean.
+
+- **globe**: opaque textured sphere with a key light kept towards the camera's
+  upper-right, plus a small blue rim. Can be disabled with
+  `--layer globe=off`, which restores the wireframe look.
+- **atmosphere**: a slightly larger additive shell (`earth_radius * 1.028`)
+  whose back faces produce a fresnel halo. Toggle with
+  `--layer atmosphere=off`.
+- **grid**: the 15-degree geographic grid is drawn at `1.0005 * earth_radius`
+  with a small depth bias, so it sits above the texture without z-fighting and
+  is occluded correctly behind the horizon.
+
+The opaque globe now writes depth, so ISL links, satellites and task pulses
+behind the Earth are hidden. Surface overlays (route, dome, grid) remain visible
+through the depth bias.
+
+### ISL level of detail
+
+The naval constellation has around 4,000 unique ISL edges. Drawing all of them
+at every zoom is noisy and wasteful. The renderer now keeps a per-satellite
+budget derived from the **ISL density** slider (Layers panel) and the camera
+distance:
+
+- near the surface the budget is about `4 + 36 * density` links per satellite;
+- far away the budget is reduced to 65% (mid) or 35% (whole globe in view);
+- edges incident to an access point and edges carrying an active traffic
+  forward are **always** drawn, regardless of the budget;
+- traffic-weighted edges are kept first, then the remaining edges are chosen by
+  satellite id for stable output.
+
+The default density is `0.6`. Set it from the command line with
+`--isl-density 0..1`, or at runtime with:
+
+```jsonl
+{"cmd":"isl","density":0.35}
+```
+
+The current value is reported as `isl_density` in `state` and recorded by
+`--record-script`.
 
 ## Relationship with the core repository
 

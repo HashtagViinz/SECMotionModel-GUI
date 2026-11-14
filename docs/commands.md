@@ -25,6 +25,7 @@ driver, and `--record-script` writes GUI actions back as JSONL.
 | `--camera MODE` | initial camera: `orbit`, `topdown`, `vessel`, `satellite`, `free` |
 | `--target NAME` | initial camera target entity |
 | `--layer NAME=on\|off` | initial layer state, repeatable |
+| `--isl-density N` | ISL detail level, `0..1` (default `0.6`) |
 | `--validate-only` | validate a scene, no GPU required |
 | `--strict` | stop with exit code 5 on the first failing command |
 | `--log-level LEVEL` | `debug`, `info`, `warn`, `error` |
@@ -66,7 +67,8 @@ Codes: `PARSE_ERROR`, `MISSING_CMD`, `UNKNOWN_COMMAND`, `MISSING_FIELD`,
 | `step` | move by `delta` frames (default 1) | `<` / `>` buttons | `←` / `→` |
 | `speed` | playback speed | timeline slider | `[` / `]` |
 | `camera` | mode, target, distance | telemetry camera combo | `1`–`5` |
-| `layer` | show/hide a layer (`load`, `traffic`, …) | Layers panel | `G` `I` `D` `O` `K` |
+| `layer` | show/hide a layer (`globe`, `atmosphere`, `grid`, `load`, `traffic`, …) | Layers panel | `G` `I` `D` `O` `K` |
+| `isl` | ISL detail density, `{"density": 0..1}` | Layers panel slider | — |
 | `select` | select an entity | click satellite/vessel/observer | — |
 | `reset` | back to frame 0, paused | Reset button | `R` |
 | `state` | current state as JSON | HUD + command palette | always visible |
@@ -88,6 +90,28 @@ same flow is available non-interactively with `--import DIR`.
 The HUD **Scenarios...** button opens a list of known simulations: the TLE base
 scene, the naval runs found under `result/naval/*/*`, and cached exported
 scenes. Each row has an **Open** button; **Refresh** rescans the directories.
+
+## Globe, atmosphere and ISL detail
+
+The Earth is a textured UV sphere. The 1024x512 equirectangular JPEG is
+compiled into the binary, so headless and packaged builds render the same globe
+without external files. Layers:
+
+- `globe` (default on): opaque textured sphere; turn it off to return to the
+  wireframe view.
+- `atmosphere` (default on): additive fresnel shell around the globe.
+- `grid` (default on): 15-degree geographic grid above the texture.
+
+ISL rendering adapts to the camera distance. Near the surface the budget is
+about `4 + 36 * density` links per satellite; far away it drops to 65% or 35%.
+AP links and edges with an active traffic forward always remain visible. Set
+the density from the Layers panel slider or with:
+
+```jsonl
+{"cmd":"isl","density":0.35}
+```
+
+`state` reports the current value as `isl_density`.
 
 ## Live telemetry layers (scene v2)
 

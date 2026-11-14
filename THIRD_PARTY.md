@@ -12,6 +12,7 @@ third-party components are used:
 | [glfw3webgpu](https://github.com/eliemichel/glfw3webgpu) | commit `8f14534e79c590e8a7f7795ea42e01bedea9e137` | MIT |
 | [nlohmann/json](https://github.com/nlohmann/json) | tag `v3.11.3` | MIT |
 | [stb](https://github.com/nothings/stb) | commit `4e9b368bfc071e97206ea5c6adba68dd0cbf8897` | MIT / public domain |
+| Earth texture `assets/earth_1024.jpg` | derived from the three.js `earth_atmos_2048.jpg` example (NASA Blue Marble imagery) | public domain (NASA) |
 
 Build-time only, not linked into the final binaries:
 

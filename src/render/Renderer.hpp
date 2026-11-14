@@ -30,11 +30,26 @@ struct PointInstance {
 	float sizeKm = 60.0f;
 };
 
+struct GlobeVertex {
+	float x = 0.0f;
+	float y = 0.0f;
+	float z = 0.0f;
+	float nx = 0.0f;
+	float ny = 0.0f;
+	float nz = 0.0f;
+	float u = 0.0f;
+	float v = 0.0f;
+};
+
 struct RenderFrame {
 	Mat4 viewProjection;
 	Vec3 cameraRight{1.0, 0.0, 0.0};
 	Vec3 cameraUp{0.0, 1.0, 0.0};
 	Vec3 cameraEye{0.0, 0.0, 0.0};
+	Vec3 sunDirection{0.50, 0.72, 0.47};
+	double earthRadiusKm = 6371.0;
+	bool globeVisible = false;
+	bool atmosphereVisible = false;
 	std::vector<LineVertex> lines;
 	std::vector<PointInstance> points;
 };
@@ -49,7 +64,7 @@ public:
 	// Static Earth wireframe; uploaded once.
 	void setEarthGrid(std::vector<LineVertex> vertices);
 
-	// Per-frame dynamic data (ISL, dome, route, satellites).
+	// Per-frame dynamic data (globe, ISL, dome, route, satellites).
 	void update(const RenderFrame& frame);
 
 	void render(const wgpu::CommandEncoder& encoder,
@@ -62,23 +77,40 @@ public:
 	wgpu::TextureFormat colorFormat() const { return colorFormat_; }
 	std::size_t lastLineCount() const { return dynamicLineCount_; }
 	std::size_t lastPointCount() const { return pointCount_; }
+	std::size_t lastGlobeTriangleCount() const { return globeTriangleCount_; }
 
 private:
+	wgpu::Buffer createBuffer(const char* label, std::size_t size, WGPUBufferUsage usage) const;
 	wgpu::Buffer createVertexBuffer(const char* label, std::size_t size) const;
+	wgpu::Texture createEarthTexture() const;
+	wgpu::Sampler createEarthSampler() const;
 
 	wgpu::Device device_;
 	wgpu::Queue queue_;
 	wgpu::TextureFormat colorFormat_ = wgpu::TextureFormat::Undefined;
 
 	wgpu::BindGroupLayout uniformLayout_;
+	wgpu::BindGroupLayout textureLayout_;
 	wgpu::PipelineLayout pipelineLayout_;
 	wgpu::Buffer uniformBuffer_;
 
-	wgpu::ShaderModule lineModule_;
-	wgpu::ShaderModule pointModule_;
+	wgpu::ShaderModule sceneModule_;
 	wgpu::RenderPipeline linePipeline_;
 	wgpu::RenderPipeline pointPipeline_;
+	wgpu::RenderPipeline globePipeline_;
+	wgpu::RenderPipeline atmospherePipeline_;
 	wgpu::BindGroup uniformBindGroup_;
+
+	wgpu::Texture earthTexture_;
+	wgpu::TextureView earthTextureView_;
+	wgpu::Sampler earthSampler_;
+	wgpu::BindGroup earthBindGroup_;
+
+	wgpu::Buffer globeVertexBuffer_;
+	wgpu::Buffer globeIndexBuffer_;
+	std::size_t globeVertexCount_ = 0;
+	std::size_t globeIndexCount_ = 0;
+	std::size_t globeTriangleCount_ = 0;
 
 	std::vector<LineVertex> earthGrid_;
 	wgpu::Buffer earthGridBuffer_;
@@ -91,6 +123,10 @@ private:
 	wgpu::Buffer pointBuffer_;
 	std::size_t pointCapacity_ = 0;
 	std::size_t pointCount_ = 0;
+
+	bool globeVisible_ = false;
+	bool atmosphereVisible_ = false;
+	double earthRadiusKm_ = 6371.0;
 };
 
 } // namespace secgui

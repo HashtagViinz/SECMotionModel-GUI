@@ -23,6 +23,7 @@ struct Args {
 	int windowFrames = 0;          // auto-close the window after N frames (0 = unlimited)
 	double time = -1.0;
 	double speed = 1.0;
+	double islDensity = 0.6;
 	bool headless = false;
 	bool strict = false;
 	bool validateOnly = false;

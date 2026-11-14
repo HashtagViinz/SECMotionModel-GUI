@@ -32,7 +32,7 @@ void testArgs() {
 	std::vector<std::string> storage = {
 		"secmotion-gui", "--headless", "--scene", "examples/minimal/scene.json",
 		"--screenshot=out/x.png", "--frame", "3", "--width=640", "--height", "360",
-		"--strict", "--backend", "vulkan",
+		"--strict", "--backend", "vulkan", "--isl-density", "0.35",
 	};
 	std::vector<char*> argv;
 	argv.reserve(storage.size());
@@ -48,6 +48,7 @@ void testArgs() {
 	check(args.backend == "vulkan", "--backend parsed");
 	check(args.scenePath == "examples/minimal/scene.json", "--scene parsed");
 	check(args.screenshotPath == "out/x.png", "--screenshot parsed");
+	check(args.islDensity == 0.35, "--isl-density parsed");
 
 	bool threw = false;
 	std::vector<std::string> badStorage = {"secmotion-gui", "--unknown"};
@@ -61,6 +62,20 @@ void testArgs() {
 		threw = true;
 	}
 	check(threw, "unknown option throws");
+
+	bool densityThrew = false;
+	std::vector<std::string> badDensity = {"secmotion-gui", "--isl-density", "1.5"};
+	std::vector<char*> badDensityArgv;
+	for (std::string& value : badDensity) {
+		badDensityArgv.push_back(value.data());
+	}
+	try {
+		(void)secgui::parseArgs(static_cast<int>(badDensityArgv.size()),
+		                       badDensityArgv.data());
+	} catch (const std::exception&) {
+		densityThrew = true;
+	}
+	check(densityThrew, "out-of-range --isl-density throws");
 }
 
 } // namespace
