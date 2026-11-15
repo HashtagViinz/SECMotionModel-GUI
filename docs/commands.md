@@ -93,7 +93,7 @@ scenes. Each row has an **Open** button; **Refresh** rescans the directories.
 
 ## Globe, atmosphere and ISL detail
 
-The Earth is a textured UV sphere. The 1024x512 equirectangular JPEG is
+The Earth is a textured UV sphere. The 2048x1024 equirectangular JPEG is
 compiled into the binary, so headless and packaged builds render the same globe
 without external files. Layers:
 

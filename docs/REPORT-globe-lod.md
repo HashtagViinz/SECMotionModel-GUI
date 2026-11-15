@@ -6,10 +6,11 @@ on `main` for the next release.
 
 ## What changed
 
-- **Embedded Earth texture.** `assets/earth_1024.jpg` (1024x512, ~80 KB) is
-  compiled into the binary as `src/render/EarthTextureData.cpp` by
-  `tools/embed_texture.py`. Nothing is downloaded or read from disk at runtime.
-  `stb_image` decodes it once during renderer initialization.
+- **Embedded Earth texture.** `assets/earth_2048.jpg` (2048x1024, ~450 KB,
+  Solar System Scope day map, CC BY 4.0) is compiled into the binary as
+  `src/render/EarthTextureData.cpp` by `tools/embed_texture.py`. Nothing is
+  downloaded or read from disk at runtime. `stb_image` decodes it once during
+  renderer initialization.
 - **Textured globe.** A 128x64 UV sphere is drawn with the equirectangular
   texture, a camera-relative key light and a subtle blue rim. The opaque globe
   writes depth, so geometry behind the Earth is correctly hidden.
@@ -36,12 +37,12 @@ Windows under Wine with lavapipe).
 
 | Case | Screenshot result |
 |---|---|
-| TLE base scene, frame 0, orbit | `points: 10629`, `lines: 768` (line vertices), `mean: 40.91`, `std: 64.77`, `nonblank: true` |
-| Naval IN_NETWORK, frame 30, default density | `points: 465`, `lines: 6656`, `mean: 36.43`, `std: 61.02` |
+| TLE base scene, frame 0, orbit | `points: 10629`, `lines: 768` (line vertices), `mean: 52.12`, `std: 75.77`, `nonblank: true` |
+| Naval IN_NETWORK, frame 30, default density | `points: 465`, `lines: 6656`, `mean: 45.14`, `std: 67.33` |
 | Naval IN_NETWORK, frame 30, `--isl-density 0` | `lines: 2578` |
 | Naval IN_NETWORK, frame 30, `--isl-density 1` | `lines: 8284` |
-| `examples/minimal` (v1) | `points: 9`, `lines: 776`, `mean: 35.48`, `nonblank: true` |
-| `examples/live` (v2, load+traffic), time 2 | `points: 11`, `lines: 794`, `mean: 35.50` Linux / `35.50` Windows |
+| `examples/minimal` (v1) | `points: 9`, `lines: 776`, `mean: 44.31`, `nonblank: true` |
+| `examples/live` (v2, load+traffic), time 2 | `points: 11`, `lines: 794`, `mean: 44.33` Linux / `44.33` Windows |
 
 The v1 and v2 scenes render the globe, atmosphere and grid without changing the
 `load`/`traffic` data path. The `lines` count proves the LOD slider changes the
@@ -52,6 +53,10 @@ ISL set while AP/active traffic edges survive (even density 0 keeps links).
 A follow-up pass aligned the view with the satellitetracker3d.com reference:
 
 - the clear colour is now pure black instead of dark navy;
+- the Earth texture was swapped for the 2048x1024 Solar System Scope day map:
+  deep blue oceans, saturated vegetation and warm deserts instead of the muted
+  Blue Marble derivation; satellite markers are near-white so they stay
+  readable over the brighter globe;
 - satellite markers are about half the previous size (3 px default, 4.5 px AP),
   with smaller load halos and terminal markers;
 - the atmosphere shell is thinner (`1.016 * earth_radius`) and its fresnel
@@ -90,16 +95,16 @@ The Wine log shows:
 
 ```text
 [info] WebGPU ready: backend=vulkan adapter=llvmpipe (LLVM 15.0.6, 256 bits)
-[info] Earth texture decoded: 1024x512 (3 channels)
+[info] Earth texture decoded: 2048x1024 (3 channels)
 windows smoke test passed
 ```
 
 Headless screenshots from the final `.exe` reproduce the Linux content:
 
-- TLE base scene: `points: 10629`, `lines: 768`, `mean: 40.91`;
-- naval frame 30: `points: 465`, `lines: 6656`, `mean: 36.46`, identical line
+- TLE base scene: `points: 10629`, `lines: 768`, `mean: 52.12`;
+- naval frame 30: `points: 465`, `lines: 6656`, `mean: 45.14`, identical line
   and point counts to Linux;
-- live v2 at time 2: `points: 11`, `lines: 794`, `mean: 35.50`.
+- live v2 at time 2: `points: 11`, `lines: 794`, `mean: 44.33`.
 
 The Windows hashes differ from Linux because lavapipe and the native Vulkan
 driver rasterize the last bit differently, as documented in

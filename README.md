@@ -20,7 +20,7 @@ The GUI renders LEO satellite motion, inter-satellite links, visibility domes an
 ```text
 src/         C++ sources (app, cli, scene, render, screenshot, ui, util)
 shaders/     WGSL shaders (embedded in src/render/Renderer.cpp)
-assets/      embedded assets (Earth texture, 1024x512)
+assets/      embedded assets (Earth texture, 2048x1024)
 tools/       asset embedding helpers
 schema/      JSON schemas for scene, tasks and command protocol
 examples/    minimal scene, JSONL scripts, golden screenshots
@@ -158,12 +158,13 @@ guided example.
 
 ## Rendering
 
-The globe is a UV sphere textured with an equirectangular Earth map. The
-1024x512 JPEG is embedded in the binary (`assets/earth_1024.jpg`, generated into
-`src/render/EarthTextureData.cpp` by `tools/embed_texture.py`), so the AppImage
-and the Windows `.exe` need no external asset and never download anything at
-runtime. `RGBA8Unorm`, linear filtering and a repeat/clamp sampler keep the
-seam and poles clean.
+The globe is a UV sphere textured with a vivid equirectangular Earth map. The
+2048x1024 JPEG is embedded in the binary (`assets/earth_2048.jpg`, generated
+into `src/render/EarthTextureData.cpp` by `tools/embed_texture.py`), so the
+AppImage and the Windows `.exe` need no external asset and never download
+anything at runtime. `RGBA8Unorm`, linear filtering and a repeat/clamp sampler
+keep the seam and poles clean. The texture is the Solar System Scope Earth day
+map (CC BY 4.0), credited in `THIRD_PARTY.md`.
 
 - **globe**: opaque textured sphere with a balanced, saturation-preserving
   tone curve, a soft terminator and a small blue rim. Can be disabled with

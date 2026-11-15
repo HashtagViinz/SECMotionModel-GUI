@@ -120,8 +120,8 @@ fn fs_globe(in: GlobeOut) -> @location(0) vec4f {
 	// saturation instead of lifting everything towards white. The peak stays
 	// close to 1.0 so bright deserts and clouds do not clip.
 	let luma = dot(color, vec3f(0.2126, 0.7152, 0.0722));
-	color = mix(vec3f(luma), color, 1.26);
-	color = clamp((color - 0.12) * 1.10 + 0.12, vec3f(0.0), vec3f(1.0));
+	color = mix(vec3f(luma), color, 1.12);
+	color = clamp((color - 0.12) * 1.08 + 0.12, vec3f(0.0), vec3f(1.0));
 	let viewDir = normalize(uniforms.eye.xyz - in.world);
 	let rim = pow(1.0 - clamp(dot(normal, viewDir), 0.0, 1.0), 4.0);
 	color += vec3f(0.10, 0.24, 0.55) * rim * 0.35;

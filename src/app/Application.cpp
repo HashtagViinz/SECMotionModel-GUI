@@ -1082,7 +1082,7 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 				point.r = 0.35f; point.g = 0.9f; point.b = 0.45f; point.a = 1.0f;
 				point.sizeKm = static_cast<float>(3.5 * pixelKm);
 			} else {
-				point.r = 0.55f; point.g = 0.68f; point.b = 0.85f; point.a = 1.0f;
+				point.r = 0.90f; point.g = 0.96f; point.b = 1.0f; point.a = 0.95f;
 				point.sizeKm = static_cast<float>(3.0 * pixelKm);
 			}
 			frame.points.push_back(point);
@@ -2179,6 +2179,8 @@ int Application::runWindowed() {
 				ImGui::Text("Drag orbit");
 				ImGui::Text("Scroll / two-finger  zoom");
 				ImGui::Text("+ / -  zoom  (Shift = fine)");
+				ImGui::Separator();
+				ImGui::TextDisabled("Earth: Solar System Scope (CC BY 4.0)");
 			}
 			ImGui::End();
 		}

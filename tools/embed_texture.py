@@ -2,7 +2,7 @@
 """Embed a binary asset as a C++ byte array.
 
 Usage:
-    tools/embed_texture.py assets/earth_1024.jpg \
+    tools/embed_texture.py assets/earth_2048.jpg \
         src/render/EarthTextureData.hpp src/render/EarthTextureData.cpp
 
 The generated files are committed so the binary stays self-contained and the
