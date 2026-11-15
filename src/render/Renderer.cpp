@@ -112,12 +112,16 @@ fn fs_globe(in: GlobeOut) -> @location(0) vec4f {
 	let normal = normalize(in.normal);
 	let sun = normalize(uniforms.sun.xyz);
 	let diffuse = max(dot(normal, sun), 0.0);
-	// Ambient keeps the night side readable while orbiting.
-	let daylight = 0.38 + 0.78 * diffuse;
+	// Keep the globe bright and legible like a visualization tool, with a
+	// soft terminator instead of a dark night side.
+	let daylight = 0.82 + 0.28 * smoothstep(-0.40, 0.80, diffuse);
 	var color = albedo * daylight;
+	color = pow(clamp(color, vec3f(0.0), vec3f(1.0)), vec3f(0.84));
+	let luma = dot(color, vec3f(0.2126, 0.7152, 0.0722));
+	color = mix(vec3f(luma), color, 1.10);
 	let viewDir = normalize(uniforms.eye.xyz - in.world);
 	let rim = pow(1.0 - clamp(dot(normal, viewDir), 0.0, 1.0), 4.0);
-	color += vec3f(0.10, 0.24, 0.55) * rim * 0.55;
+	color += vec3f(0.10, 0.24, 0.55) * rim * 0.35;
 	return vec4f(color, 1.0);
 }
 
@@ -133,8 +137,9 @@ fn vs_atmosphere(
 	@location(1) normal: vec3f,
 	@location(2) uv: vec2f,
 ) -> AtmosphereOut {
-	// A slightly larger shell around the globe produces the halo.
-	let world = position * (uniforms.eye.w * 1.028);
+	// A thin shell around the globe produces the halo without veiling the
+	// texture.
+	let world = position * (uniforms.eye.w * 1.016);
 	var out: AtmosphereOut;
 	out.pos = uniforms.viewProj * vec4f(world, 1.0);
 	out.normal = normal;
@@ -151,11 +156,11 @@ fn fs_atmosphere(in: AtmosphereOut) -> @location(0) vec4f {
 	if (facing >= 0.0) {
 		discard;
 	}
-	let rim = pow(1.0 - clamp(-facing, 0.0, 1.0), 3.0);
+	let rim = pow(1.0 - clamp(-facing, 0.0, 1.0), 5.0);
 	let sun = normalize(uniforms.sun.xyz);
 	let lit = clamp(dot(normalize(in.normal), sun) * 0.5 + 0.5, 0.0, 1.0);
-	let intensity = rim * (0.35 + 0.65 * lit);
-	return vec4f(vec3f(0.22, 0.52, 1.0) * intensity * 1.35, 1.0);
+	let intensity = rim * (0.40 + 0.60 * lit);
+	return vec4f(vec3f(0.30, 0.62, 1.0) * intensity * 0.80, 1.0);
 }
 )";
 
@@ -685,7 +690,7 @@ void Renderer::render(const wgpu::CommandEncoder& encoder,
 	colorAttachment.resolveTarget = nullptr;
 	colorAttachment.loadOp = wgpu::LoadOp::Clear;
 	colorAttachment.storeOp = wgpu::StoreOp::Store;
-	colorAttachment.clearValue = wgpu::Color{0.015, 0.02, 0.05, 1.0};
+	colorAttachment.clearValue = wgpu::Color{0.0, 0.0, 0.0, 1.0};
 	colorAttachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
 
 	wgpu::RenderPassDepthStencilAttachment depthAttachment{};

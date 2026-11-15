@@ -326,7 +326,7 @@ std::vector<LineVertex> makeEarthGrid(double radiusKm) {
 	const float r = 0.20f;
 	const float g = 0.28f;
 	const float b = 0.42f;
-	const float a = 0.55f;
+	const float a = 0.40f;
 	for (int latitude = -75; latitude <= 75; latitude += 15) {
 		const double phi = latitude * kPi / 180.0;
 		Vec3 previous;
@@ -1026,7 +1026,7 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 			marker.y = static_cast<float>(head.y);
 			marker.z = static_cast<float>(head.z);
 			marker.r = 1.0f; marker.g = 0.9f; marker.b = 0.3f; marker.a = 0.95f;
-			marker.sizeKm = static_cast<float>(5.0 * pixelKm);
+			marker.sizeKm = static_cast<float>(3.0 * pixelKm);
 			frame.points.push_back(marker);
 		}
 	}
@@ -1068,22 +1068,22 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 				const auto color = loadColor(load);
 				point.r = color[0]; point.g = color[1]; point.b = color[2]; point.a = color[3];
 				point.sizeKm = static_cast<float>(
-					(8.0 + std::min(load, 1.0) * 18.0 + (satellite.isAp ? 2.0 : 0.0)) * pixelKm);
+					(4.0 + std::min(load, 1.0) * 9.0 + (satellite.isAp ? 1.0 : 0.0)) * pixelKm);
 				if (load > 0.5) {
 					PointInstance halo = point;
 					halo.r = 1.0f; halo.g = 0.55f; halo.b = 0.15f; halo.a = 0.8f;
-					halo.sizeKm = point.sizeKm + static_cast<float>(3.0 * pixelKm);
+					halo.sizeKm = point.sizeKm + static_cast<float>(1.5 * pixelKm);
 					frame.points.push_back(halo);
 				}
 			} else if (satellite.isAp) {
 				point.r = 1.0f; point.g = 0.78f; point.b = 0.25f; point.a = 1.0f;
-				point.sizeKm = static_cast<float>(10.0 * pixelKm);
+				point.sizeKm = static_cast<float>(4.5 * pixelKm);
 			} else if (satellite.lifeRemainingS.has_value() && satellite.lifeRemainingS.value() > 0.0) {
 				point.r = 0.35f; point.g = 0.9f; point.b = 0.45f; point.a = 1.0f;
-				point.sizeKm = static_cast<float>(8.0 * pixelKm);
+				point.sizeKm = static_cast<float>(3.5 * pixelKm);
 			} else {
 				point.r = 0.55f; point.g = 0.68f; point.b = 0.85f; point.a = 1.0f;
-				point.sizeKm = static_cast<float>(6.0 * pixelKm);
+				point.sizeKm = static_cast<float>(3.0 * pixelKm);
 			}
 			frame.points.push_back(point);
 		}
@@ -1095,7 +1095,7 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 	vessel.y = static_cast<float>(frameData_->vessel.ecefKm.y);
 	vessel.z = static_cast<float>(frameData_->vessel.ecefKm.z);
 	vessel.r = 1.0f; vessel.g = 0.35f; vessel.b = 0.35f; vessel.a = 1.0f;
-	vessel.sizeKm = static_cast<float>(10.0 * pixelKm);
+	vessel.sizeKm = static_cast<float>(6.0 * pixelKm);
 	frame.points.push_back(vessel);
 
 	PointInstance observer;
@@ -1103,7 +1103,7 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 	observer.y = static_cast<float>(frameData_->observer.ecefKm.y);
 	observer.z = static_cast<float>(frameData_->observer.ecefKm.z);
 	observer.r = 0.3f; observer.g = 0.85f; observer.b = 1.0f; observer.a = 1.0f;
-	observer.sizeKm = static_cast<float>(8.0 * pixelKm);
+	observer.sizeKm = static_cast<float>(4.5 * pixelKm);
 	frame.points.push_back(observer);
 
 	// Task pulses: interpolate the active hop at the current frame time.
@@ -1162,7 +1162,7 @@ RenderFrame Application::buildRenderFrame(unsigned width, unsigned height) const
 			pulse.g = color[1];
 			pulse.b = color[2];
 			pulse.a = color[3];
-			pulse.sizeKm = static_cast<float>(12.0 * pixelKm);
+			pulse.sizeKm = static_cast<float>(7.0 * pixelKm);
 			frame.points.push_back(pulse);
 		}
 	}
@@ -1876,7 +1876,7 @@ int Application::runWindowed() {
 				if (std::abs(deltaX) + std::abs(deltaY) > 2.0) {
 					clickCandidate = false;
 				}
-				camera_.yawDeg -= deltaX * 0.3;
+				camera_.yawDeg += deltaX * 0.3;
 				camera_.pitchDeg = std::clamp(camera_.pitchDeg + deltaY * 0.3, 2.0, 88.0);
 				cameraMoved = true;
 				lastMouseX = mouseX;

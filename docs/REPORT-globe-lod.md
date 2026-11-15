@@ -13,9 +13,10 @@ on `main` for the next release.
 - **Textured globe.** A 128x64 UV sphere is drawn with the equirectangular
   texture, a camera-relative key light and a subtle blue rim. The opaque globe
   writes depth, so geometry behind the Earth is correctly hidden.
-- **Atmosphere shell.** A second pass at `1.028 * earth_radius` renders the far
+- **Atmosphere shell.** A second pass at `1.016 * earth_radius` renders the far
   side of a fresnel shell additively; the globe depth hides the part inside the
-  disk, leaving a halo around the limb. It works headless and in the window.
+  disk, leaving a thin halo around the limb. It works headless and in the
+  window.
 - **Thin grid.** The existing 15-degree grid stays at
   `1.0005 * earth_radius`; a small clip-space depth bias keeps it above the
   texture without z-fighting.
@@ -35,16 +36,33 @@ Windows under Wine with lavapipe).
 
 | Case | Screenshot result |
 |---|---|
-| TLE base scene, frame 0, orbit | `points: 10629`, `lines: 768` (line vertices), `mean: 51.91`, `std: 67.12`, `nonblank: true` |
-| Naval IN_NETWORK, frame 30, default density | `points: 465`, `lines: 6656`, `mean: 39.40`, `std: 56.78` |
+| TLE base scene, frame 0, orbit | `points: 10629`, `lines: 768` (line vertices), `mean: 45.36`, `std: 67.17`, `nonblank: true` |
+| Naval IN_NETWORK, frame 30, default density | `points: 465`, `lines: 6656`, `mean: 41.08`, `std: 64.03` |
 | Naval IN_NETWORK, frame 30, `--isl-density 0` | `lines: 2578` |
 | Naval IN_NETWORK, frame 30, `--isl-density 1` | `lines: 8284` |
-| `examples/minimal` (v1) | `points: 9`, `lines: 776`, `nonblank: true` |
-| `examples/live` (v2, load+traffic), time 2 | `points: 11`, `lines: 794`, `mean: 38.19` Linux / `38.21` Windows |
+| `examples/minimal` (v1) | `points: 9`, `lines: 776`, `mean: 40.21`, `nonblank: true` |
+| `examples/live` (v2, load+traffic), time 2 | `points: 11`, `lines: 794`, `mean: 40.23` Linux / Windows TBD |
 
 The v1 and v2 scenes render the globe, atmosphere and grid without changing the
 `load`/`traffic` data path. The `lines` count proves the LOD slider changes the
 ISL set while AP/active traffic edges survive (even density 0 keeps links).
+
+### View tuning (issue #10)
+
+A follow-up pass aligned the view with the satellitetracker3d.com reference:
+
+- the clear colour is now pure black instead of dark navy;
+- satellite markers are about half the previous size (3 px default, 4.5 px AP),
+  with smaller load halos and terminal markers;
+- the atmosphere shell is thinner (`1.016 * earth_radius`) and its fresnel
+  exponent/intensity were reduced, so the texture stays clear up to the limb;
+- the globe uses a brighter ambient/soft-terminator curve, a mild midtone gamma
+  and a small saturation boost; the grid alpha is reduced to 0.40;
+- horizontal drag now increases yaw, so the planet follows the mouse: dragging
+  right moves the surface right. Vertical drag already matched the natural
+  direction.
+
+The metrics table above is from this version.
 
 ### Performance
 

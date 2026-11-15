@@ -165,11 +165,11 @@ and the Windows `.exe` need no external asset and never download anything at
 runtime. `RGBA8Unorm`, linear filtering and a repeat/clamp sampler keep the
 seam and poles clean.
 
-- **globe**: opaque textured sphere with a key light kept towards the camera's
-  upper-right, plus a small blue rim. Can be disabled with
+- **globe**: opaque textured sphere with a bright, camera-relative key light
+  and a soft terminator, plus a small blue rim. Can be disabled with
   `--layer globe=off`, which restores the wireframe look.
-- **atmosphere**: a slightly larger additive shell (`earth_radius * 1.028`)
-  whose back faces produce a fresnel halo. Toggle with
+- **atmosphere**: a slightly larger additive shell (`earth_radius * 1.016`)
+  whose back faces produce a thin fresnel halo. Toggle with
   `--layer atmosphere=off`.
 - **grid**: the 15-degree geographic grid is drawn at `1.0005 * earth_radius`
   with a small depth bias, so it sits above the texture without z-fighting and
