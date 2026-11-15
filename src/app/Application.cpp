@@ -2570,6 +2570,35 @@ int Application::runWindowed() {
 		}
 
 		wgpu::Texture surfaceTextureHandle(surfaceTexture.texture);
+		const uint32_t surfaceWidth = surfaceTextureHandle.getWidth();
+		const uint32_t surfaceHeight = surfaceTextureHandle.getHeight();
+		// ImGui sets its viewport from the draw-data display size, which can
+		// change asynchronously while this frame is being built. If it no
+		// longer matches the acquired swapchain image, drop the frame instead
+		// of submitting an invalid viewport.
+		const ImDrawData* drawData = ImGui::GetDrawData();
+		const uint32_t viewportWidth = static_cast<uint32_t>(
+			drawData->DisplaySize.x * drawData->FramebufferScale.x + 0.5f);
+		const uint32_t viewportHeight = static_cast<uint32_t>(
+			drawData->DisplaySize.y * drawData->FramebufferScale.y + 0.5f);
+		if (surfaceWidth != viewportWidth || surfaceHeight != viewportHeight) {
+			logDebug("viewport " + std::to_string(viewportWidth) + "x"
+			         + std::to_string(viewportHeight) + " != surface "
+			         + std::to_string(surfaceWidth) + "x"
+			         + std::to_string(surfaceHeight) + "; reconfiguring");
+			surfaceTextureHandle.release();
+			int framebufferWidth = 0;
+			int framebufferHeight = 0;
+			glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+			if (framebufferWidth > 0 && framebufferHeight > 0) {
+				width = static_cast<unsigned>(framebufferWidth);
+				height = static_cast<unsigned>(framebufferHeight);
+			}
+			configureSurface(width, height);
+			createDepth(width, height);
+			glfwWaitEventsTimeout(0.01);
+			continue;
+		}
 		const wgpu::TextureView surfaceView = surfaceTextureHandle.createView();
 		const wgpu::CommandEncoder encoder = gpu_.device.createCommandEncoder();
 

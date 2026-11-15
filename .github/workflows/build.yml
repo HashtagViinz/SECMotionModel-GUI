@@ -111,6 +111,14 @@ jobs:
               --tasks examples/minimal/tasks.jsonl \
               --window-frames 60
 
+      - name: Window resize smoke test (Xvfb)
+        env:
+          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+        run: |
+          xvfb-run -a -s "-screen 0 1280x720x24" \
+            bash scripts/window_resize_test.sh \
+              ./build-linux/secmotion-gui examples/minimal/scene.json
+
       - name: Package and test AppImage
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"

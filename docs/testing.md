@@ -56,6 +56,22 @@ exits with code `0` and exercises GLFW, the WebGPU surface, Dear ImGui and the
 full render loop. The Docker Linux build runs this test on both the native
 binary and the packaged AppImage.
 
+### Window resize regression
+
+`scripts/window_resize_test.sh` starts the GUI (under `xvfb-run` when there is
+no display), resizes the window several times while frames are in flight and
+fails on a WebGPU validation error or abort:
+
+```bash
+scripts/window_resize_test.sh build-gui/secmotion-gui
+```
+
+It uses the TLE base scene when the cache exists (the heavier frame widens the
+resize race), otherwise `examples/minimal`. The GUI skips a frame when the
+acquired swapchain image and the ImGui viewport disagree, reconfigures the
+surface and continues; the debug log reports
+`viewport ... != surface ...; reconfiguring`.
+
 ## Globe and ISL LOD checks
 
 Issue #9 adds a textured globe, an atmosphere shell and ISL level of detail.

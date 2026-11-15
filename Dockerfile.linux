@@ -50,7 +50,10 @@ RUN cmake -S . -B build-linux -G Ninja \
          build-linux/secmotion-gui --backend vulkan --strict \
            --scene examples/minimal/scene.json \
            --tasks examples/minimal/tasks.jsonl \
-           --window-frames 60
+           --window-frames 60 \
+    && xvfb-run -a -s "-screen 0 1280x720x24" \
+         bash scripts/window_resize_test.sh \
+           build-linux/secmotion-gui examples/minimal/scene.json
 
 FROM ubuntu:22.04 AS package
 
