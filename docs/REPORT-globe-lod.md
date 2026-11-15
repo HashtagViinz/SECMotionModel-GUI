@@ -6,8 +6,8 @@ on `main` for the next release.
 
 ## What changed
 
-- **Embedded Earth texture.** `assets/earth_2048.jpg` (2048x1024, ~450 KB,
-  Solar System Scope day map, CC BY 4.0) is compiled into the binary as
+- **Embedded Earth texture.** `assets/earth_2048.jpg` (2048x1024, ~330 KB,
+  Solar System Scope day map, CC BY 4.0, desert-graded) is compiled into the binary as
   `src/render/EarthTextureData.cpp` by `tools/embed_texture.py`. Nothing is
   downloaded or read from disk at runtime. `stb_image` decodes it once during
   renderer initialization.
@@ -37,12 +37,12 @@ Windows under Wine with lavapipe).
 
 | Case | Screenshot result |
 |---|---|
-| TLE base scene, frame 0, orbit | `points: 10629`, `lines: 768` (line vertices), `mean: 52.12`, `std: 75.77`, `nonblank: true` |
-| Naval IN_NETWORK, frame 30, default density | `points: 465`, `lines: 6656`, `mean: 45.14`, `std: 67.33` |
+| TLE base scene, frame 0, orbit | `points: 10629`, `lines: 768` (line vertices), `mean: 50.17`, `std: 72.30`, `nonblank: true` |
+| Naval IN_NETWORK, frame 30, default density | `points: 465`, `lines: 6656`, `mean: 43.08`, `std: 62.97` |
 | Naval IN_NETWORK, frame 30, `--isl-density 0` | `lines: 2578` |
 | Naval IN_NETWORK, frame 30, `--isl-density 1` | `lines: 8284` |
-| `examples/minimal` (v1) | `points: 9`, `lines: 776`, `mean: 44.31`, `nonblank: true` |
-| `examples/live` (v2, load+traffic), time 2 | `points: 11`, `lines: 794`, `mean: 44.33` Linux / `44.33` Windows |
+| `examples/minimal` (v1) | `points: 9`, `lines: 776`, `mean: 42.24`, `nonblank: true` |
+| `examples/live` (v2, load+traffic), time 2 | `points: 11`, `lines: 794`, `mean: 42.26` Linux / Windows TBD |
 
 The v1 and v2 scenes render the globe, atmosphere and grid without changing the
 `load`/`traffic` data path. The `lines` count proves the LOD slider changes the
@@ -57,6 +57,10 @@ A follow-up pass aligned the view with the satellitetracker3d.com reference:
   deep blue oceans, saturated vegetation and warm deserts instead of the muted
   Blue Marble derivation; satellite markers are near-white so they stay
   readable over the brighter globe;
+- the desert pixels of that map are graded to a sandy tone offline (Sahara
+  `(233,213,187)` -> `(224,191,140)`; about 6% of the map). Bright cream
+  deserts matched the near-white markers and hid them; the sand keeps the
+  constellation readable without touching oceans, vegetation or ice;
 - satellite markers are about half the previous size (3 px default, 4.5 px AP),
   with smaller load halos and terminal markers;
 - the atmosphere shell is thinner (`1.016 * earth_radius`) and its fresnel
@@ -76,8 +80,8 @@ The metrics table above is from this version.
 Measured on the development machine (AMD Radeon 610M, Vulkan) with a 1920x1080
 offscreen screenshot including process startup, scene load and texture decode:
 
-- TLE base scene (10,627 satellites): **0.51 s**;
-- naval run (463 satellites, load + traffic): **1.47 s**.
+- TLE base scene (10,627 satellites): **0.62 s**;
+- naval run (463 satellites, load + traffic): **1.68 s**.
 
 A 120-frame window run takes about 2.2 s for the base scene and 3.3 s for the
 naval scene including startup, i.e. no visible regression versus v0.2.0. The
@@ -101,10 +105,10 @@ windows smoke test passed
 
 Headless screenshots from the final `.exe` reproduce the Linux content:
 
-- TLE base scene: `points: 10629`, `lines: 768`, `mean: 52.12`;
-- naval frame 30: `points: 465`, `lines: 6656`, `mean: 45.14`, identical line
+- TLE base scene: `points: 10629`, `lines: 768`, `mean: 50.17`;
+- naval frame 30: `points: 465`, `lines: 6656`, `mean: 43.08`, identical line
   and point counts to Linux;
-- live v2 at time 2: `points: 11`, `lines: 794`, `mean: 44.33`.
+- live v2 at time 2: `points: 11`, `lines: 794`, `mean: 42.26`.
 
 The Windows hashes differ from Linux because lavapipe and the native Vulkan
 driver rasterize the last bit differently, as documented in

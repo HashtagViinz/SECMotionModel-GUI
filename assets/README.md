@@ -2,7 +2,7 @@
 
 ## `earth_2048.jpg`
 
-Equirectangular Earth day map, 2048x1024, JPEG quality 90 (about 450 KB).
+Equirectangular Earth day map, 2048x1024, JPEG quality 92 (about 330 KB).
 
 - Source: [Solar System Scope — Earth textures](https://www.solarsystemscope.com/textures/)
   (`2k_earth_daymap.jpg`), licensed under
@@ -11,6 +11,10 @@ Equirectangular Earth day map, 2048x1024, JPEG quality 90 (about 450 KB).
   warm deserts and white ice. It replaces the previous washed-out 1024x512
   Blue Marble derivation so the globe reads well against the black space
   background.
+- The desert pixels are graded to a sandy tone (roughly `(224, 191, 140)` over
+  the Sahara) while oceans, vegetation and ice stay untouched. Bright deserts
+  would match the near-white satellite markers and hide them; sand keeps the
+  constellation readable.
 - Longitude 0 is at the centre of the image and latitude +90 at the top, which
   matches the ECEF UV mapping used by the renderer.
 
