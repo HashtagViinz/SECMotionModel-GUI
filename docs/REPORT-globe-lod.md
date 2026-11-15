@@ -41,7 +41,7 @@ Windows under Wine with lavapipe).
 | Naval IN_NETWORK, frame 30, `--isl-density 0` | `lines: 2578` |
 | Naval IN_NETWORK, frame 30, `--isl-density 1` | `lines: 8284` |
 | `examples/minimal` (v1) | `points: 9`, `lines: 776`, `mean: 35.48`, `nonblank: true` |
-| `examples/live` (v2, load+traffic), time 2 | `points: 11`, `lines: 794`, `mean: 35.50` Linux / Windows TBD |
+| `examples/live` (v2, load+traffic), time 2 | `points: 11`, `lines: 794`, `mean: 35.50` Linux / `35.50` Windows |
 
 The v1 and v2 scenes render the globe, atmosphere and grid without changing the
 `load`/`traffic` data path. The `lines` count proves the LOD slider changes the
@@ -96,10 +96,10 @@ windows smoke test passed
 
 Headless screenshots from the final `.exe` reproduce the Linux content:
 
-- TLE base scene: `points: 10629`, `lines: 768`, `mean: 45.35`;
-- naval frame 30: `points: 465`, `lines: 6656`, `mean: 41.11`, identical line
+- TLE base scene: `points: 10629`, `lines: 768`, `mean: 40.91`;
+- naval frame 30: `points: 465`, `lines: 6656`, `mean: 36.46`, identical line
   and point counts to Linux;
-- live v2 at time 2: `points: 11`, `lines: 794`, `mean: 40.23`.
+- live v2 at time 2: `points: 11`, `lines: 794`, `mean: 35.50`.
 
 The Windows hashes differ from Linux because lavapipe and the native Vulkan
 driver rasterize the last bit differently, as documented in
