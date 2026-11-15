@@ -164,7 +164,8 @@ into `src/render/EarthTextureData.cpp` by `tools/embed_texture.py`), so the
 AppImage and the Windows `.exe` need no external asset and never download
 anything at runtime. `RGBA8Unorm`, linear filtering and a repeat/clamp sampler
 keep the seam and poles clean. The texture is the Solar System Scope Earth day
-map (CC BY 4.0), credited in `THIRD_PARTY.md`.
+map (CC BY 4.0), credited in `THIRD_PARTY.md`. Desert areas are graded to a
+sandy tone so the near-white satellite markers stay readable over land.
 
 - **globe**: opaque textured sphere with a balanced, saturation-preserving
   tone curve, a soft terminator and a small blue rim. Can be disabled with

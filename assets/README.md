@@ -18,13 +18,22 @@ Equirectangular Earth day map, 2048x1024, JPEG quality 92 (about 330 KB).
 - Longitude 0 is at the centre of the image and latitude +90 at the top, which
   matches the ECEF UV mapping used by the renderer.
 
-The image is compiled into `src/render/EarthTextureData.cpp`. To regenerate the
-header after replacing the JPEG:
+The image is compiled into `src/render/EarthTextureData.cpp`. To rebuild the
+graded map from the original Solar System Scope download and then refresh the
+embedded header:
 
 ```bash
+python3 tools/grade_deserts.py 2k_earth_daymap.jpg assets/earth_2048.jpg
 python3 tools/embed_texture.py assets/earth_2048.jpg \
   src/render/EarthTextureData.hpp src/render/EarthTextureData.cpp
 ```
+
+`grade_deserts.py` is deterministic: running it on the original download
+reproduces the committed JPEG byte for byte. The specification is: warm pixels
+(`r > g > b`, luminance > 0.40, saturation 0.08-0.60, `r - b > 0.06`), then
+luminance-preserving saturation 1.20, channel weights R 1.05 / G 1.00 /
+B 0.86 and a 10% darkening. The feather keeps coastlines clean; the mask covers
+about 6% of the map.
 
 The generated files are committed; the build does not need Python or network
 access.
