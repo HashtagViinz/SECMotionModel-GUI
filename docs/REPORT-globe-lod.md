@@ -76,8 +76,8 @@ The metrics table above is from this version.
 Measured on the development machine (AMD Radeon 610M, Vulkan) with a 1920x1080
 offscreen screenshot including process startup, scene load and texture decode:
 
-- TLE base scene (10,627 satellites): **0.46 s**;
-- naval run (463 satellites, load + traffic): **1.50 s**.
+- TLE base scene (10,627 satellites): **0.51 s**;
+- naval run (463 satellites, load + traffic): **1.47 s**.
 
 A 120-frame window run takes about 2.2 s for the base scene and 3.3 s for the
 naval scene including startup, i.e. no visible regression versus v0.2.0. The
