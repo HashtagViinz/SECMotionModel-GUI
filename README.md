@@ -165,8 +165,8 @@ and the Windows `.exe` need no external asset and never download anything at
 runtime. `RGBA8Unorm`, linear filtering and a repeat/clamp sampler keep the
 seam and poles clean.
 
-- **globe**: opaque textured sphere with a bright, camera-relative key light
-  and a soft terminator, plus a small blue rim. Can be disabled with
+- **globe**: opaque textured sphere with a balanced, saturation-preserving
+  tone curve, a soft terminator and a small blue rim. Can be disabled with
   `--layer globe=off`, which restores the wireframe look.
 - **atmosphere**: a slightly larger additive shell (`earth_radius * 1.016`)
   whose back faces produce a thin fresnel halo. Toggle with

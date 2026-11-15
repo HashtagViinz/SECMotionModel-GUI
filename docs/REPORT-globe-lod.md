@@ -36,12 +36,12 @@ Windows under Wine with lavapipe).
 
 | Case | Screenshot result |
 |---|---|
-| TLE base scene, frame 0, orbit | `points: 10629`, `lines: 768` (line vertices), `mean: 45.36`, `std: 67.17`, `nonblank: true` |
-| Naval IN_NETWORK, frame 30, default density | `points: 465`, `lines: 6656`, `mean: 41.08`, `std: 64.03` |
+| TLE base scene, frame 0, orbit | `points: 10629`, `lines: 768` (line vertices), `mean: 40.91`, `std: 64.77`, `nonblank: true` |
+| Naval IN_NETWORK, frame 30, default density | `points: 465`, `lines: 6656`, `mean: 36.43`, `std: 61.02` |
 | Naval IN_NETWORK, frame 30, `--isl-density 0` | `lines: 2578` |
 | Naval IN_NETWORK, frame 30, `--isl-density 1` | `lines: 8284` |
-| `examples/minimal` (v1) | `points: 9`, `lines: 776`, `mean: 40.21`, `nonblank: true` |
-| `examples/live` (v2, load+traffic), time 2 | `points: 11`, `lines: 794`, `mean: 40.23` Linux / `40.23` Windows |
+| `examples/minimal` (v1) | `points: 9`, `lines: 776`, `mean: 35.48`, `nonblank: true` |
+| `examples/live` (v2, load+traffic), time 2 | `points: 11`, `lines: 794`, `mean: 35.50` Linux / Windows TBD |
 
 The v1 and v2 scenes render the globe, atmosphere and grid without changing the
 `load`/`traffic` data path. The `lines` count proves the LOD slider changes the
@@ -56,8 +56,10 @@ A follow-up pass aligned the view with the satellitetracker3d.com reference:
   with smaller load halos and terminal markers;
 - the atmosphere shell is thinner (`1.016 * earth_radius`) and its fresnel
   exponent/intensity were reduced, so the texture stays clear up to the limb;
-- the globe uses a brighter ambient/soft-terminator curve, a mild midtone gamma
-  and a small saturation boost; the grid alpha is reduced to 0.40;
+- the globe uses a balanced soft-terminator curve that preserves the texture's
+  colour depth: contrast around the midtones, saturation restored, and the peak
+  kept near 1.0 so deserts and clouds do not clip to white; the grid alpha is
+  reduced to 0.40;
 - horizontal drag now increases yaw, so the planet follows the mouse: dragging
   right moves the surface right. Vertical drag already matched the natural
   direction.
