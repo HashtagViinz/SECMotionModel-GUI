@@ -92,6 +92,56 @@ SceneMetadata SceneLoader::load(const std::filesystem::path& path) {
 		throw std::runtime_error("scene manifest must be a JSON object: " + manifestPath.string());
 	}
 
+	// A .secsim file is a small descriptor that points at the files of an
+	// already-exported scene. The manifest still owns the frame pattern and
+	// metadata; the descriptor may override the optional sidecar paths.
+	if (doc.contains("format") && doc.at("format").is_string()
+	    && doc.at("format").get<std::string>() == "secgui-simulation") {
+		const int bundleVersion = doc.value("version", 1);
+		if (bundleVersion != 1) {
+			throw std::runtime_error("unsupported simulation file version "
+			                         + std::to_string(bundleVersion) + " (expected 1)");
+		}
+		const std::string manifestValue = stringField(doc, "manifest", "");
+		if (manifestValue.empty()) {
+			throw std::runtime_error("simulation file must declare a 'manifest' path: "
+			                         + manifestPath.string());
+		}
+		const auto resolve = [&](const std::string& value) {
+			std::filesystem::path candidate(value);
+			if (!candidate.is_absolute()) {
+				candidate = manifestPath.parent_path() / candidate;
+			}
+			return std::filesystem::absolute(candidate);
+		};
+		const std::filesystem::path sceneManifest = resolve(manifestValue);
+		SceneMetadata meta = SceneLoader::load(sceneManifest);
+		if (!meta.bundlePath.empty()) {
+			throw std::runtime_error("simulation file must reference a scene manifest, not another simulation file: "
+			                         + sceneManifest.string());
+		}
+		meta.bundlePath = std::filesystem::absolute(manifestPath);
+		meta.bundleName = stringField(doc, "name", "");
+		const auto overridePath = [&](const char* key, std::string& target) {
+			if (!doc.contains(key)) {
+				return;
+			}
+			const auto& value = doc.at(key);
+			if (!value.is_string()) {
+				throw std::runtime_error(std::string("simulation field '") + key
+				                         + "' must be a string");
+			}
+			const std::string text = value.get<std::string>();
+			target = text.empty() ? std::string() : resolve(text).string();
+		};
+		overridePath("tasks", meta.tasksPath);
+		overridePath("loads", meta.loadsPath);
+		overridePath("traffic", meta.trafficPath);
+		logDebug("loaded simulation file " + meta.bundlePath.string()
+		         + " -> " + meta.manifestPath.string());
+		return meta;
+	}
+
 	SceneMetadata meta;
 	meta.manifestPath = manifestPath;
 	meta.rootDir = manifestPath.parent_path();

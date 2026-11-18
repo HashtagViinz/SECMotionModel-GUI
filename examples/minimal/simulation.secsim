@@ -1,0 +1,7 @@
+{
+  "format": "secgui-simulation",
+  "version": 1,
+  "name": "Minimal example",
+  "manifest": "scene.json",
+  "tasks": "tasks.jsonl"
+}

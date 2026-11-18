@@ -9,8 +9,8 @@ driver, and `--record-script` writes GUI actions back as JSONL.
 
 | Option | Meaning |
 |---|---|
-| `--scene PATH` | scene manifest (`scene.json` or a directory containing `manifest.json`) |
-| `--import PATH` | scene or run directory loaded at startup; runs are exported first |
+| `--scene PATH` | scene manifest, `.secsim` simulation file, or a directory containing `manifest.json` |
+| `--import PATH` | `.secsim` file or scene path loaded at startup |
 | `--tasks PATH` | task trace JSONL, overrides the manifest |
 | `--script PATH` | JSONL command script, `-` reads stdin |
 | `--output-dir DIR` | base directory for relative screenshot paths |
@@ -83,13 +83,16 @@ initial `open`, camera, speed and layer state; replaying that file with
 `--headless --script` reproduces the same screenshots.
 
 Without `--scene`, the window starts empty and shows the **Import scene**
-panel. It browses directories, loads a scene directly, and exports a simulation
-run (`gui_run.json`) through the core Python exporter before loading it. The
-same flow is available non-interactively with `--import DIR`.
+panel. It lists `.secsim` simulation files and scene manifests in the current
+folder. Both load directly. A raw run (`gui_run.json`) is not a GUI scene: the
+panel says so and points at the core exporter. The GUI binary never runs Python
+and never searches for the core repository. The same flow is available
+non-interactively with `--import PATH`.
 
-The HUD **Scenarios...** button opens a list of known simulations: the TLE base
-scene, the naval runs found under `result/naval/*/*`, and cached exported
-scenes. Each row has an **Open** button; **Refresh** rescans the directories.
+The HUD **Scenarios...** button opens a list of known exported simulations: the
+TLE base scene and the `.secsim`/scene directories under
+`$SECGUI_CACHE_DIR/scenes` and `$SECGUI_CACHE_DIR/runs`. Each row has an
+**Open** button; **Refresh** rescans the cache.
 
 ## Globe, atmosphere and ISL detail
 

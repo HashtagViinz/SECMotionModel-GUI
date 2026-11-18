@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HashtagViinz/SECMotionModel-GUI/schema/simulation-v1.schema.json",
+  "title": "SECMotionModel GUI simulation file v1",
+  "description": "Single-file descriptor for an exported GUI scene. Paths are resolved relative to this file when they are not absolute.",
+  "type": "object",
+  "required": ["format", "version", "manifest"],
+  "additionalProperties": true,
+  "properties": {
+    "format": { "const": "secgui-simulation" },
+    "version": { "const": 1 },
+    "name": { "type": "string" },
+    "manifest": { "type": "string", "minLength": 1 },
+    "tasks": { "type": "string" },
+    "loads": { "type": "string" },
+    "traffic": { "type": "string" },
+    "source": { "type": "object" }
+  }
+}

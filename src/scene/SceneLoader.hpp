@@ -33,6 +33,14 @@ struct SceneMetadata {
 	std::map<std::string, bool> defaultLayers;
 	std::filesystem::path rootDir;    // directory containing the manifest
 	std::filesystem::path manifestPath;
+	std::filesystem::path bundlePath; // .secsim file, empty for a plain scene
+	std::string bundleName;
+
+	// The path the user opened: the .secsim file when present, otherwise the
+	// manifest. `open` recordings and state reports use this path.
+	std::filesystem::path sourcePath() const {
+		return bundlePath.empty() ? manifestPath : bundlePath;
+	}
 
 	double frameTime(int frameIndex) const {
 		return static_cast<double>(frameIndex) * intervalS;

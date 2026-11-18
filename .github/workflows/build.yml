@@ -87,6 +87,13 @@ jobs:
             --script examples/minimal/demo.jsonl \
             --output-dir out/linux
           test -s out/linux/minimal_frame2.png
+          ./build-linux/secmotion-gui --validate-only \
+            --scene examples/minimal/simulation.secsim | grep -q '"loaded":true'
+          ./build-linux/secmotion-gui --headless --backend vulkan --strict \
+            --scene examples/minimal/simulation.secsim \
+            --screenshot bundle.png --frame 0 --width 640 --height 360 \
+            --output-dir out/linux
+          test -s out/linux/bundle.png
           mkdir -p out/linux-live
           ./build-linux/secmotion-gui --headless --backend vulkan --strict \
             --scene examples/live/manifest.json \

@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -64,17 +65,43 @@ bool isRunDirectory(const std::filesystem::path& directory) {
 	return std::filesystem::is_regular_file(directory / "gui_run.json", error);
 }
 
-std::string shellQuoted(const std::filesystem::path& path) {
-	std::string value = path.string();
-	std::string escaped;
-	escaped.reserve(value.size() + 2);
-	for (char character : value) {
-		if (character == '"') {
-			escaped.push_back('\\');
-		}
-		escaped.push_back(character);
+std::string lowercaseExtension(const std::filesystem::path& file) {
+	std::string extension = file.extension().string();
+	std::transform(extension.begin(), extension.end(), extension.begin(),
+	               [](unsigned char character) {
+		               return static_cast<char>(std::tolower(character));
+	               });
+	return extension;
+}
+
+bool isSimulationFile(const std::filesystem::path& file) {
+	std::error_code error;
+	return std::filesystem::is_regular_file(file, error)
+	    && lowercaseExtension(file) == ".secsim";
+}
+
+bool isSceneManifestFile(const std::filesystem::path& file) {
+	std::error_code error;
+	if (!std::filesystem::is_regular_file(file, error)) {
+		return false;
 	}
-	return "\"" + escaped + "\"";
+	const std::string name = file.filename().string();
+	return name == "manifest.json" || name == "scene.json";
+}
+
+bool isRunMetadataFile(const std::filesystem::path& file) {
+	std::error_code error;
+	return std::filesystem::is_regular_file(file, error)
+	    && file.filename() == "gui_run.json";
+}
+
+std::filesystem::path preferredScenePath(const std::filesystem::path& directory) {
+	std::error_code error;
+	const auto bundle = directory / "simulation.secsim";
+	if (std::filesystem::is_regular_file(bundle, error)) {
+		return bundle;
+	}
+	return directory;
 }
 
 std::filesystem::path defaultCacheRoot() {
@@ -99,126 +126,6 @@ std::filesystem::path defaultBaseSceneDirectory() {
 		return configured;
 	}
 	return defaultCacheRoot() / "base";
-}
-
-std::optional<std::filesystem::path> findCoreRoot() {
-	std::error_code error;
-	const auto isCore = [&](const std::filesystem::path& candidate) {
-		return std::filesystem::is_regular_file(
-		           candidate / "tools" / "export_gui_scene.py", error)
-		    && std::filesystem::is_directory(candidate / "data", error);
-	};
-
-	if (const char* configured = std::getenv("SECGUI_CORE");
-	    configured != nullptr && configured[0] != '\0') {
-		const std::filesystem::path candidate(configured);
-		if (isCore(candidate)) {
-			return candidate;
-		}
-	}
-
-	std::filesystem::path directory = std::filesystem::current_path(error);
-	for (int level = 0; level < 6 && !directory.empty(); ++level) {
-		std::vector<std::filesystem::path> candidates{
-			directory,
-			directory / "SECMotionModel",
-			directory.parent_path() / "SECMotionModel",
-		};
-		for (const auto& candidate : candidates) {
-			if (isCore(candidate)) {
-				return candidate;
-			}
-		}
-		const auto parent = directory.parent_path();
-		if (parent == directory) {
-			break;
-		}
-		directory = parent;
-	}
-	return std::nullopt;
-}
-
-std::optional<std::filesystem::path> exportRunScene(
-        const std::filesystem::path& runDirectory, std::string& errorMessage) {
-	const auto core = findCoreRoot();
-	if (!core) {
-		errorMessage = "core repository not found; set SECGUI_CORE to the SECMotionModel path";
-		return std::nullopt;
-	}
-
-	const auto modified = [](const std::filesystem::path& path) {
-		std::error_code error;
-		const auto stamp = std::filesystem::last_write_time(path, error);
-		return error ? std::string("0") : std::to_string(stamp.time_since_epoch().count());
-	};
-	const std::string key = runDirectory.string()
-	                      + "|" + modified(runDirectory / "gui_run.json")
-	                      + "|" + modified(runDirectory / "gui_state.csv")
-	                      + "|" + modified(runDirectory / "gui_links.csv");
-	const auto hash = std::hash<std::string>{}(key);
-	std::error_code error;
-	auto cacheRoot = std::filesystem::temp_directory_path(error);
-	if (error) {
-		error.clear();
-		cacheRoot = std::filesystem::current_path(error) / "secgui-imports";
-	}
-	if (error) {
-		errorMessage = "cannot locate a cache directory: " + error.message();
-		return std::nullopt;
-	}
-	cacheRoot /= "secgui-imports";
-	const auto cache = cacheRoot / ("run-" + std::to_string(hash));
-	if (std::filesystem::is_regular_file(cache / "manifest.json", error)) {
-		return cache;
-	}
-
-	std::filesystem::create_directories(cacheRoot, error);
-	if (error) {
-		errorMessage = "cannot create the import cache: " + error.message();
-		return std::nullopt;
-	}
-
-	std::filesystem::create_directories(cache, error);
-	if (error) {
-		errorMessage = "cannot create the import cache: " + error.message();
-		return std::nullopt;
-	}
-
-	const auto script = *core / "tools" / "export_gui_scene.py";
-	const auto logPath = cache / "export.log";
-	std::vector<std::string> pythons;
-#ifdef _WIN32
-	pythons = {"python", "py -3"};
-#else
-	pythons = {"/usr/bin/python3", "python3", "python"};
-#endif
-#ifdef _WIN32
-	const std::string changeDirectory = "cd /d " + shellQuoted(*core) + " && ";
-#else
-	const std::string changeDirectory = "cd " + shellQuoted(*core) + " && ";
-#endif
-	int status = 1;
-	for (std::size_t index = 0; index < pythons.size(); ++index) {
-		const std::string command = changeDirectory + pythons[index] + " "
-		                          + shellQuoted(script)
-		                          + " --run-dir " + shellQuoted(runDirectory)
-		                          + " --out " + shellQuoted(cache)
-		                          + (index == 0 ? " > " : " >> ")
-		                          + shellQuoted(logPath) + " 2>&1";
-		status = std::system(command.c_str());
-		if (status == 0) {
-			break;
-		}
-	}
-	if (status != 0) {
-		errorMessage = "export failed; see " + logPath.string();
-		return std::nullopt;
-	}
-	if (!std::filesystem::is_regular_file(cache / "manifest.json", error)) {
-		errorMessage = "export produced no manifest; see " + logPath.string();
-		return std::nullopt;
-	}
-	return cache;
 }
 
 Vec3 corrected(const Vec3& value, double factor) {
@@ -712,8 +619,15 @@ nlohmann::json Application::sceneInfo() const {
 		return info;
 	}
 	info["loaded"] = true;
+	info["source"] = scene_->sourcePath().string();
 	info["manifest"] = scene_->manifestPath.string();
 	info["root_dir"] = scene_->rootDir.string();
+	if (!scene_->bundlePath.empty()) {
+		info["simulation_file"] = scene_->bundlePath.string();
+		if (!scene_->bundleName.empty()) {
+			info["simulation_name"] = scene_->bundleName;
+		}
+	}
 	info["version"] = scene_->version;
 	info["t0"] = scene_->t0;
 	info["interval_s"] = scene_->intervalS;
@@ -1174,6 +1088,15 @@ nlohmann::json Application::commandOpen(const nlohmann::json& payload) {
 	const std::string path = payload.value("scene", args_.scenePath);
 	if (path.empty()) {
 		throw CommandError("MISSING_FIELD", "'open' requires a 'scene' path or the --scene option");
+	}
+	const std::filesystem::path candidate(path);
+	std::error_code pathError;
+	if (isRunMetadataFile(candidate)
+	    || (std::filesystem::is_directory(candidate, pathError)
+	        && isRunDirectory(candidate))) {
+		throw CommandError("SCENE_ERROR",
+			"raw simulation run: export it first with the core "
+			"tools/export_gui_scene.py, then open the generated .secsim file");
 	}
 	if (payload.contains("tasks") && payload["tasks"].is_string()) {
 		tasksOverride_ = payload["tasks"].get<std::string>();
@@ -1638,6 +1561,7 @@ int Application::runWindowed() {
 		std::string name;
 		bool scene = false;
 		bool run = false;
+		bool simulation = false;
 	};
 	struct ScenarioEntry {
 		std::string label;
@@ -1672,35 +1596,42 @@ int Application::runWindowed() {
 			std::filesystem::path target = candidate;
 			std::error_code error;
 			if (std::filesystem::is_regular_file(target, error)) {
-				target = target.parent_path();
+				if (isRunMetadataFile(target)) {
+					target = target.parent_path();
+				} else if (isSimulationFile(target)) {
+					loadScene(target);
+					showImport = false;
+					importStatus = "Loaded simulation " + target.string();
+					recordCommand("open", nlohmann::json{{"scene", scene_->sourcePath().string()}});
+					return true;
+				} else if (lowercaseExtension(target) == ".json") {
+					// A scene manifest can be selected directly, regardless of
+					// its file name.
+					loadScene(target);
+					showImport = false;
+					importStatus = "Loaded scene " + target.string();
+					recordCommand("open", nlohmann::json{{"scene", scene_->sourcePath().string()}});
+					return true;
+				} else {
+					throw std::runtime_error(
+						"not a .secsim simulation file or scene manifest: " + target.string());
+				}
 			}
 			if (isSceneDirectory(target)) {
-				std::error_code manifestError;
-				std::filesystem::path manifest = target / "manifest.json";
-				if (!std::filesystem::is_regular_file(manifest, manifestError)) {
-					manifest = target / "scene.json";
-				}
-				loadScene(manifest);
+				loadScene(preferredScenePath(target));
 				showImport = false;
 				importStatus = "Loaded " + target.string();
-				recordCommand("open", nlohmann::json{{"scene", manifest.string()}});
+				recordCommand("open", nlohmann::json{{"scene", scene_->sourcePath().string()}});
 				return true;
 			}
 			if (isRunDirectory(target)) {
-				importStatus = "Exporting " + target.string() + " ...";
-				std::string exportError;
-				const auto scene = exportRunScene(target, exportError);
-				if (!scene) {
-					throw std::runtime_error(exportError);
-				}
-				loadScene(*scene);
-				showImport = false;
-				importStatus = "Loaded " + scene->string();
-				recordCommand("open", nlohmann::json{{"scene", scene->string()}});
-				return true;
+				throw std::runtime_error(
+					"raw simulation run: export it first with "
+					"`python tools/export_gui_scene.py --run-dir \"" + target.string()
+					+ "\" --out <scene-dir>`, then open the generated .secsim file");
 			}
 			throw std::runtime_error(
-				"no manifest.json/scene.json or gui_run.json in " + target.string());
+				"no .secsim file or scene manifest at " + target.string());
 		} catch (const std::exception& error) {
 			logWarn("import failed: " + std::string(error.what()));
 			importStatus = error.what();
@@ -1711,13 +1642,14 @@ int Application::runWindowed() {
 	const auto refreshImportListing = [&]() {
 		importEntries.clear();
 		std::error_code error;
-		std::filesystem::directory_iterator iterator(importPath, error);
+		const bool selectedFile = std::filesystem::is_regular_file(importPath, error);
+		const std::filesystem::path browsePath = selectedFile
+			? importPath.parent_path() : importPath;
+		error.clear();
+		std::filesystem::directory_iterator iterator(browsePath, error);
 		const std::filesystem::directory_iterator end;
 		for (; !error && iterator != end; iterator.increment(error)) {
 			std::error_code typeError;
-			if (!iterator->is_directory(typeError)) {
-				continue;
-			}
 			const auto path = iterator->path();
 			const std::string name = path.filename().string();
 			if (name.empty() || name.front() == '.') {
@@ -1726,8 +1658,18 @@ int Application::runWindowed() {
 			ImportEntry entry;
 			entry.path = path;
 			entry.name = name;
-			entry.scene = isSceneDirectory(path);
-			entry.run = isRunDirectory(path);
+			if (iterator->is_directory(typeError)) {
+				entry.scene = isSceneDirectory(path);
+				entry.run = isRunDirectory(path);
+			} else if (isSimulationFile(path)) {
+				entry.simulation = true;
+			} else if (isSceneManifestFile(path)) {
+				entry.scene = true;
+			} else if (isRunMetadataFile(path)) {
+				entry.run = true;
+			} else {
+				continue;
+			}
 			importEntries.push_back(std::move(entry));
 			if (importEntries.size() >= 300) {
 				break;
@@ -1738,7 +1680,7 @@ int Application::runWindowed() {
 			          return left.name < right.name;
 		          });
 		if (error) {
-			importStatus = "Cannot list " + importPath.string() + ": " + error.message();
+			importStatus = "Cannot list " + browsePath.string() + ": " + error.message();
 		}
 		importListingDirty = false;
 	};
@@ -1754,66 +1696,26 @@ int Application::runWindowed() {
 			});
 		}
 
-		if (const auto core = findCoreRoot()) {
-			std::error_code error;
-			const auto naval = *core / "result" / "naval";
-			std::filesystem::directory_iterator useCase(naval, error);
+		const auto scanCache = [&](const std::filesystem::path& root,
+		                           const char* label) {
+			std::error_code cacheError;
+			std::filesystem::directory_iterator cached(root, cacheError);
 			const std::filesystem::directory_iterator end;
-			for (; !error && useCase != end; useCase.increment(error)) {
+			for (; !cacheError && cached != end; cached.increment(cacheError)) {
 				std::error_code typeError;
-				if (!useCase->is_directory(typeError)) {
+				if (!cached->is_directory(typeError)
+				    || !isSceneDirectory(cached->path())) {
 					continue;
 				}
-				std::error_code modeError;
-				std::filesystem::directory_iterator mode(useCase->path(), modeError);
-				for (; !modeError && mode != end; mode.increment(modeError)) {
-					if (!mode->is_directory(modeError)) {
-						continue;
-					}
-					const auto runDirectory = mode->path();
-					if (!isRunDirectory(runDirectory)) {
-						continue;
-					}
-					std::string detail = "Simulation run: load + traffic";
-					try {
-						std::ifstream input(runDirectory / "gui_run.json");
-						nlohmann::json meta;
-						input >> meta;
-						const double duration = meta.value("duration_s", 0.0);
-						const double sample = meta.value("sample_interval_s", 0.0);
-						if (duration > 0.0) {
-							detail += " | " + std::to_string(static_cast<int>(duration)) + " s";
-						}
-						if (sample > 0.0) {
-							detail += " | samples " + std::to_string(sample) + " s";
-						}
-					} catch (const std::exception&) {
-					}
-					scenarios.push_back({
-						useCase->path().filename().string() + " / "
-							+ runDirectory.filename().string(),
-						detail,
-						runDirectory,
-					});
-				}
+				scenarios.push_back({
+					std::string(label) + ": " + cached->path().filename().string(),
+					"Exported scene",
+					cached->path(),
+				});
 			}
-		}
-
-		const auto cacheRuns = defaultCacheRoot() / "runs";
-		std::error_code cacheError;
-		std::filesystem::directory_iterator cached(cacheRuns, cacheError);
-		const std::filesystem::directory_iterator end;
-		for (; !cacheError && cached != end; cached.increment(cacheError)) {
-			std::error_code typeError;
-			if (!cached->is_directory(typeError) || !isSceneDirectory(cached->path())) {
-				continue;
-			}
-			scenarios.push_back({
-				"Cached: " + cached->path().filename().string(),
-				"Previously exported scene",
-				cached->path(),
-			});
-		}
+		};
+		scanCache(defaultCacheRoot() / "scenes", "Exported");
+		scanCache(defaultCacheRoot() / "runs", "Cached");
 
 		if (scenarios.size() > 1) {
 			std::stable_sort(scenarios.begin() + 1, scenarios.end(),
@@ -2414,13 +2316,14 @@ int Application::runWindowed() {
 				ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 			if (ImGui::Begin("Scenarios", &showScenarios)) {
 				ImGui::TextWrapped(
-					"Choose a simulation. Raw runs are exported with the core "
-					"Python exporter the first time; exported scenes load directly.");
+					"Choose an exported simulation. Create one with the core "
+					"tools/export_gui_scene.py exporter; the GUI only reads the "
+					"resulting .secsim and scene files.");
 				if (ImGui::Button("Refresh")) {
 					scenariosDirty = true;
 				}
 				ImGui::SameLine();
-				if (ImGui::Button("Import directory...")) {
+				if (ImGui::Button("Import...")) {
 					showImport = true;
 					showScenarios = false;
 				}
@@ -2432,7 +2335,7 @@ int Application::runWindowed() {
 				                  ImGuiChildFlags_Borders);
 				if (scenarios.empty()) {
 					ImGui::TextDisabled(
-						"No known scenarios. Use Import directory or start a run.");
+						"No known scenarios. Use Import or start a run.");
 				}
 				for (std::size_t index = 0; index < scenarios.size(); ++index) {
 					const ScenarioEntry& entry = scenarios[index];
@@ -2464,11 +2367,12 @@ int Application::runWindowed() {
 				ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 			if (ImGui::Begin("Import scene", &showImport)) {
 				ImGui::TextWrapped(
-					"Open a scene directory (manifest.json/scene.json) or a "
-					"simulation run directory (gui_run.json). A run is exported "
-					"with the core Python exporter before loading.");
+					"Open a .secsim simulation file or a scene manifest "
+					"(manifest.json/scene.json). Raw simulation runs must be "
+					"exported first with the core exporter; the GUI does not run "
+					"Python or depend on the core repository.");
 				ImGui::Spacing();
-				ImGui::TextDisabled("Directory");
+				ImGui::TextDisabled("Path");
 				ImGui::SetNextItemWidth(-90.0f);
 				ImGui::InputText("##import-path", importPathBuffer,
 				                 sizeof(importPathBuffer));
@@ -2497,25 +2401,35 @@ int Application::runWindowed() {
 				if (importListingDirty) {
 					refreshImportListing();
 				}
-				const bool currentScene = isSceneDirectory(importPath);
-				const bool currentRun = isRunDirectory(importPath);
-				if (currentScene) {
+				const bool currentSimulation = isSimulationFile(importPath);
+				const bool currentRun = isRunDirectory(importPath)
+				    || isRunMetadataFile(importPath);
+				const bool currentScene = !currentSimulation && !currentRun
+				    && (isSceneDirectory(importPath)
+				        || isSceneManifestFile(importPath)
+				        || lowercaseExtension(importPath) == ".json");
+				if (currentSimulation) {
+					ImGui::TextColored(ImVec4(0.55f, 0.82f, 1.0f, 1.0f),
+					                   "Simulation file detected: .secsim");
+				} else if (currentScene) {
 					ImGui::TextColored(ImVec4(0.5f, 1.0f, 0.5f, 1.0f),
 					                   "Scene detected: manifest.json/scene.json");
 				} else if (currentRun) {
 					ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.35f, 1.0f),
-					                   "Run detected: gui_run.json (will export)");
+					                   "Raw run detected: export it first with tools/export_gui_scene.py");
 				} else {
-					ImGui::TextDisabled("No scene/run metadata in this directory");
+					ImGui::TextDisabled("No simulation file or scene metadata at this path");
 				}
 
 				ImGui::BeginChild("##import-list", ImVec2(0.0f, 280.0f),
 				                  ImGuiChildFlags_Borders);
 				if (importEntries.empty()) {
-					ImGui::TextDisabled("(no subdirectories)");
+					ImGui::TextDisabled("(no scenes, simulations or subdirectories)");
 				}
 				for (const ImportEntry& entry : importEntries) {
-					if (entry.scene) {
+					if (entry.simulation) {
+						ImGui::TextColored(ImVec4(0.55f, 0.82f, 1.0f, 1.0f), "[sim]");
+					} else if (entry.scene) {
 						ImGui::TextColored(ImVec4(0.5f, 1.0f, 0.5f, 1.0f), "[scene]");
 					} else if (entry.run) {
 						ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.35f, 1.0f), "[run]");
@@ -2528,20 +2442,25 @@ int Application::runWindowed() {
 					                      ImGuiSelectableFlags_AllowDoubleClick)) {
 						setImportPath(entry.path);
 						if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)
-						    && (entry.scene || entry.run)) {
+						    && (entry.scene || entry.run || entry.simulation)) {
 							openImport(entry.path);
 						}
 					}
 				}
 				ImGui::EndChild();
 
-				if (ImGui::Button("Open this directory")) {
+				const char* openLabel = currentSimulation
+					? "Open this simulation file"
+					: (currentRun ? "Open this run"
+					              : (currentScene ? "Open this scene" : "Open this path"));
+				if (ImGui::Button(openLabel)) {
 					openImport(importPath);
 				}
 				ImGui::SameLine();
 				if (scene_) {
-					ImGui::TextDisabled("Current scene: %s",
-					                    scene_->manifestPath.filename().string().c_str());
+					ImGui::TextDisabled("Current %s: %s",
+					                    scene_->bundlePath.empty() ? "scene" : "simulation",
+					                    scene_->sourcePath().filename().string().c_str());
 				} else {
 					ImGui::TextDisabled("No scene loaded");
 				}

@@ -13,9 +13,10 @@ scene/
   traffic.jsonl      optional, v2 forward events
 ```
 
-JSON Schemas live in `schema/`. The version field is `1` or `2`; the GUI rejects
-other major versions. A v2 manifest can add live telemetry, while v1 scenes keep
-working unchanged.
+It can be opened directly, or through a single `.secsim` descriptor that lists
+the paths of these files (see below). JSON Schemas live in `schema/`. The
+manifest version field is `1` or `2`; the GUI rejects other major versions. A
+v2 manifest can add live telemetry, while v1 scenes keep working unchanged.
 
 ## Manifest
 
@@ -47,6 +48,45 @@ working unchanged.
 names are stored but have no effect. The v1/v2 scenes that predate the textured
 globe keep working: `globe` and `atmosphere` default to on, and the existing
 `load`/`traffic` flags are unchanged.
+
+## Single-file simulation descriptor (.secsim)
+
+A scene can also be opened through one small JSON file with the `.secsim`
+extension. It is a descriptor, not a copy of the scene: it points at the
+manifest and sidecar files that the GUI already uses, so there is no directory
+to select in the Import panel.
+
+```json
+{
+  "format": "secgui-simulation",
+  "version": 1,
+  "name": "Terrestrial / optimal",
+  "manifest": "../cache/terrestrial/manifest.json",
+  "tasks": "../cache/terrestrial/tasks.jsonl",
+  "loads": "../cache/terrestrial/loads.jsonl",
+  "traffic": "../cache/terrestrial/traffic.jsonl",
+  "source": { "config": "data/configurations_AP_optimal.json" }
+}
+```
+
+- `manifest` is required and points to a normal v1/v2 scene manifest.
+- `tasks`, `loads` and `traffic` are optional overrides. When absent, the
+  manifest values are used.
+- Relative paths are resolved against the directory that contains the
+  `.secsim` file; absolute paths are also accepted. The frame pattern remains
+  relative to the manifest.
+- `name` and `source` are informational and shown by `state`.
+- The GUI rejects nested simulation files and unsupported versions.
+
+Open it exactly like a scene:
+
+```bash
+secmotion-gui --scene result.secsim
+secmotion-gui --validate-only --scene result.secsim
+```
+
+The core exporters write `simulation.secsim` inside the scene directory by
+default; use `--bundle PATH` to place the descriptor elsewhere.
 
 ## Frame
 
@@ -96,13 +136,8 @@ Supported events: `spawn`, `hop_start`, `hop_end`, `compute`, `deliver`,
 `complete`, `fail`. `fail` carries `reason` (`TTL_EXPIRED`, `Insufficient Energy
 for CPU`, ...).
 
-The native trace is written by the core simulation:
-
-```bash
-python3 naval_main.py --load-only --run-sim --gui-export \
-  --trace-jsonl result/naval/IN_NETWORK/optimal/tasks.jsonl \
-  --use-case IN_NETWORK
-```
+The core exporter merges a trace with `--trace PATH`; simulation extensions
+that emit the same events can also write it directly.
 
 ## Load samples (v2)
 
@@ -138,35 +173,58 @@ stretched to at least 0.35 s.
 
 ## Producing a scene from the simulator
 
-The core repository owns the exporter:
+The core repository owns the exporter; the GUI never runs it. The exporter
+converts Skyfield GCRS positions to ITRS (`frame_xyz(itrs)`), de-duplicates ISL
+edges, keeps AP/life metadata and merges the optional task trace.
+
+Terrestrial configurations:
 
 ```bash
 cd SECMotionModel
 python tools/export_gui_scene.py \
-  --config data/naval_configurations_AP_optimal.json \
-  --trace result/naval/IN_NETWORK/optimal/trace.jsonl \
-  --out ../SECMotionModel-GUI/examples/generated/naval \
-  --start 0 --end 150
+  --config data/configurations_AP_optimal.json \
+  --out /tmp/secgui/terrestrial
 ```
 
-The exporter converts Skyfield GCRS positions to ITRS (`frame_xyz(itrs)`),
-de-duplicates ISL edges, keeps AP/life metadata and merges the SimPy task trace.
+A normal `main.py` run can export itself at the end:
 
-For a v2 run directory:
+```bash
+python main.py --gui-export
+# writes <result>/gui_scene/simulation.secsim
+```
+
+or an existing run can be exported without re-running it:
 
 ```bash
 python3 tools/export_gui_scene.py \
-  --run-dir result/naval/IN_NETWORK/optimal \
-  --out ../SECMotionModel-GUI/examples/generated/naval
+  --run-dir result/.../r_algo_GREEDY \
+  --out /tmp/secgui/run
 ```
 
-`--run-dir` reads `gui_run.json`, `gui_state.csv` and `gui_links.csv`, and picks
-up `tasks.jsonl` automatically when it exists in the same directory.
+`--run-dir` reads `gui_run.json` and, when present, `gui_state.csv`,
+`gui_links.csv`, `tasks.jsonl` and `simulation_dataset.json`. This covers both
+the extension runs and the standard `main.py` queue-monitoring dataset. Missing
+sidecars simply produce a scene without that layer.
+
+For a simulation that already writes GUI frames but uses a different internal
+model, package the scene directory directly:
+
+```bash
+python3 tools/package_gui_scene.py \
+  --scene /path/to/gui_scene \
+  --out /path/to/simulation.secsim
+```
+
+The GUI contract is only the files listed in this document; unknown fields are
+ignored and missing optional layers stay off, so new simulation variants do not
+require GUI changes as long as they emit valid frames.
 
 ## Validation
 
-- `secmotion-gui --validate-only --scene ...` checks a scene without a GPU.
+- `secmotion-gui --validate-only --scene ...` checks a scene or `.secsim` file
+  without a GPU.
 - `python -m jsonschema -i examples/minimal/scene.json schema/scene-v1.schema.json`
-  validates the manifest in CI.
+  validates the manifest in CI; use `schema/simulation-v1.schema.json` for a
+  `.secsim` descriptor.
 - The GUI rejects non-finite numbers, duplicate satellite ids, dangling
   neighbor references and frames whose radius is implausible.

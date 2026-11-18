@@ -8,6 +8,7 @@ CI or from an autonomous agent.
 | Path | Purpose |
 |---|---|
 | `minimal/scene.json` | manifest of a 3-frame, 6-satellite handcrafted scene |
+| `minimal/simulation.secsim` | single-file descriptor for the minimal scene |
 | `minimal/frames/*.json` | frame data in ECEF/ITRS kilometres |
 | `minimal/tasks.jsonl` | 3 tasks moving between the vessel, the observer and satellites |
 | `minimal/demo.jsonl` | JSONL command script used by the smoke tests |
@@ -22,8 +23,11 @@ be committed and fast enough for end-to-end tests.
 Interactive:
 
 ```bash
-secmotion-gui --scene examples/minimal/scene.json --tasks examples/minimal/tasks.jsonl
+secmotion-gui --scene examples/minimal/simulation.secsim
 ```
+
+The `.secsim` descriptor points at `minimal/scene.json` and
+`minimal/tasks.jsonl`; opening the manifest directly works too.
 
 Headless with a command script (recommended for agents):
 

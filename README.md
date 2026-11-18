@@ -89,62 +89,67 @@ ln -sf "$PWD/scripts/run_gui.sh" ~/.local/bin/secgui
 secgui                                  # TLE base scene (all satellites)
 secgui --empty                          # empty workspace with Import panel
 secgui --minimal                        # minimal example scene
-secgui --naval                          # latest naval run (load + traffic)
-secgui --import result/naval/IN_NETWORK/optimal
-secgui --naval --time 10 --camera vessel
-secgui --config data/naval_configurations_AP_optimal.json
-secgui --config data/naval_configurations_AP_optimal.json \
-  --trace /tmp/opencode/naval-tasks.jsonl
-secgui --run result/naval/IN_NETWORK/optimal
-secgui path/scene.json path/tasks.jsonl # explicit scene and tasks
+secgui path/simulation.secsim           # exported single-file simulation
+secgui --scene path/scene.json          # explicit scene manifest
+secgui --import path/simulation.secsim  # open in the Import panel
 secgui --help                           # full usage
 ```
 
-`--config` runs `tools/export_gui_scene.py` on a core configurations JSON and
-opens the result directly; the first run takes about 20 s and is cached under
-`~/.cache/secgui`, later runs reuse it. Add `--trace` to include task pulses.
-The core configuration already contains the per-step TLEs, access points,
-elevation, range and neighbors; the exporter propagates the TLEs to ECEF and
-writes the GUI frames. The GUI itself does no orbital mechanics.
+To create a simulation file, run the core exporter once:
 
-`--naval` opens the latest exported run automatically, preferring
-`result/naval/IN_NETWORK/optimal` and falling back to
-`result/naval/TO_OBSERVER/optimal`. Set `SECGUI_NAVAL_RUN` to choose another
-run, or `SECGUI_NAVAL_SCENE` to open a legacy pre-exported scene instead.
+```bash
+python3 tools/export_gui_scene.py --config data/configurations_AP_optimal.json \
+  --out ~/.cache/secgui/scenes/terrestrial
+```
 
-With no arguments `secgui` opens the **TLE base scene**: every satellite in
-the core `data/tle_data.txt` catalog around the globe. The launcher generates
-it with `tools/export_base_scene.py` on first use (about 30 s, 58 MB) and caches
-it under `~/.cache/secgui/base`; later launches are immediate. Override the
-location with `SECGUI_BASE_SCENE`.
+or run `python main.py --gui-export`, which leaves
+`result/.../gui_scene/simulation.secsim`. The GUI binary only reads the
+exported scene and never runs Python or searches for the core checkout.
 
-Inside the window, **Scenarios...** lists every known simulation with an
-**Open** button: the TLE base scene, the naval runs under
-`result/naval/*/*`, and previously exported scenes under
-`~/.cache/secgui/runs`. Raw runs are exported on first open; **Refresh**
-rescans the directories and **Import directory...** opens the free-form
-browser.
+For one-step export + launch use the core wrapper
+`SECMotionModel/tools/run_gui.sh --config ...` or `--run ...`; it calls the
+exporter and then this launcher with the resulting `.secsim`. The GUI launcher
+itself rejects those flags on purpose.
 
-`secgui --empty` (or `secgui --import DIR`) uses the **Import scene** panel
-instead. The panel browses directories, recognizes a scene
-(`manifest.json`/`scene.json`) or a simulation run (`gui_run.json`), and loads
-it. A raw run is exported to `/tmp/secgui-imports` with the core Python
-exporter before loading; the core is found through `SECGUI_CORE` or a sibling
-`SECMotionModel` checkout.
+With no arguments `secgui` opens the cached **TLE base scene**. If the cache is
+missing, the launcher prints the core `tools/export_base_scene.py` command to
+generate it once; the GUI itself never does. Override the location with
+`SECGUI_BASE_SCENE`.
 
-`--run` exports a simulation directory containing `gui_run.json`,
-`gui_state.csv` and `gui_links.csv`. It adds the real per-satellite load
-(`loads.jsonl`) and the real forward events (`traffic.jsonl`) to the scene.
-Satellites that are no longer in a frame are dropped from the load data. See
+Inside the window, **Scenarios...** lists the TLE base scene and the exported
+simulations under `~/.cache/secgui/scenes` and `~/.cache/secgui/runs`. Each row
+has an **Open** button; **Refresh** rescans the cache and **Import...** opens
+the file browser.
+
+`secgui --empty` (or `secgui --import PATH`) uses the **Import scene** panel
+instead. The panel lists `.secsim` simulation files as well as scene manifests.
+A `.secsim` file is a single-file descriptor that points at an existing
+`manifest.json` and its optional `tasks`/`loads`/`traffic` files, so there is no
+directory to select. Both `.secsim` and manifests load directly.
+
+The GUI binary is independent of the core simulator: it never runs Python and
+never searches for a core checkout. Raw runs (`gui_run.json`) must be exported
+first with the core `tools/export_gui_scene.py`; the GUI then opens the
+resulting `.secsim`. Unsupported or future scene fields are ignored, and absent
+optional layers simply stay off.
+
+```bash
+secgui result.secsim
+secgui --scene result.secsim
+```
+
+The core exporters write `simulation.secsim` next to the exported manifest by
+default; `--bundle PATH` writes the descriptor elsewhere.
+
+The core exporter maps `gui_run.json`, `gui_state.csv`, `gui_links.csv`,
+`tasks.jsonl` and `simulation_dataset.json` to the versioned scene format. The
+GUI treats missing sidecars as absent layers; see
 [docs/REPORT-live-traffic.md](docs/REPORT-live-traffic.md) for the v0.2
 telemetry report and evidence.
 
 The launcher prefers `SECGUI_BIN`, then the newest AppImage in `dist/`, then
 `build-gui/secmotion-gui`. It falls back to `APPIMAGE_EXTRACT_AND_RUN=1` when
-FUSE is unavailable. `--naval` reads `SECGUI_NAVAL_RUN` or, by default,
-`result/naval/IN_NETWORK/optimal` (then `TO_OBSERVER`); `SECGUI_NAVAL_SCENE`
-overrides it with a legacy pre-exported scene. If none exists the launcher
-prints the core command needed to create a run.
+FUSE is unavailable.
 
 Shortcuts: `Space` play/pause, `←`/`→` step, `1`–`5` camera mode,
 `G/I/D/O/K` layers, `L` layers panel, `T` telemetry, `Ctrl+K` command palette,
@@ -207,19 +212,24 @@ The current value is reported as `isl_density` in `state` and recorded by
 
 ## Relationship with the core repository
 
-The GUI is a git submodule of `SECMotionModel` at path `gui/`. The Python core
-exports GUI-ready data through `tools/export_gui_scene.py`:
+The GUI is a git submodule of `SECMotionModel` at path `gui/`, but the binary
+has no runtime dependency on the simulator. The core owns the exporter:
 
 ```bash
 cd ../SECMotionModel
 python tools/export_gui_scene.py \
-  --config data/naval_configurations_AP_optimal.json \
-  --trace result/naval/IN_TRACE.jsonl \
-  --out ../SECMotionModel-GUI/examples/generated/naval
+  --config data/configurations_AP_optimal.json \
+  --out ~/.cache/secgui/scenes/terrestrial
 ```
 
-Positions are exported in ECEF/ITRS, so the globe is earth-fixed and both the
-vessel and the observer stay at their geographic coordinates.
+It writes a versioned scene plus `simulation.secsim`. The GUI opens only that
+file (and the files it references). Positions are exported in ECEF/ITRS, so the
+globe is earth-fixed and both the terminal and the observer stay at their
+geographic coordinates.
+
+For a simulation with a different internal model, emit the scene contract
+directly and package it with `tools/package_gui_scene.py`; no GUI change is
+needed as long as the frames are valid.
 
 ## Agent communication
 
