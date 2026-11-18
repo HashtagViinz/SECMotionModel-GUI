@@ -18,7 +18,15 @@ namespace {
 
 std::filesystem::path resolveManifest(const std::filesystem::path& path) {
 	if (std::filesystem::is_directory(path)) {
-		return path / "manifest.json";
+		const auto manifest = path / "manifest.json";
+		if (std::filesystem::is_regular_file(manifest)) {
+			return manifest;
+		}
+		const auto scene = path / "scene.json";
+		if (std::filesystem::is_regular_file(scene)) {
+			return scene;
+		}
+		return manifest;
 	}
 	return path;
 }
@@ -112,7 +120,10 @@ SceneMetadata SceneLoader::load(const std::filesystem::path& path) {
 			if (!candidate.is_absolute()) {
 				candidate = manifestPath.parent_path() / candidate;
 			}
-			return std::filesystem::absolute(candidate);
+			const auto absolute = std::filesystem::absolute(candidate);
+			std::error_code error;
+			const auto normalized = std::filesystem::weakly_canonical(absolute, error);
+			return error ? absolute : normalized;
 		};
 		const std::filesystem::path sceneManifest = resolve(manifestValue);
 		SceneMetadata meta = SceneLoader::load(sceneManifest);
