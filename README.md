@@ -61,105 +61,58 @@ imports such as `D3DCOMPILER_47.dll` and `bcryptprimitives.dll` mean Windows
 ## Usage
 
 ```bash
-# interactive window (HUD, timeline, layers, telemetry, command palette)
-secmotion-gui --scene examples/minimal/scene.json --tasks examples/minimal/tasks.jsonl
+# open an exported simulation
+secmotion-gui --scene path/simulation.secsim
 
-# record GUI/CLI actions and replay them headless
-secmotion-gui --scene examples/minimal/scene.json --record-script out/actions.jsonl
-secmotion-gui --headless --script out/actions.jsonl --output-dir out
-
-# headless script with screenshots
-secmotion-gui --headless --scene examples/minimal/scene.json \
-  --script examples/minimal/demo.jsonl --output-dir out
-
-# single screenshot at an exact time (task pulses included)
-secmotion-gui --headless --scene examples/minimal/scene.json \
-  --screenshot out/frame.png --time 1.2 --width 1280 --height 720
+# one deterministic screenshot
+secmotion-gui --headless --scene path/simulation.secsim \
+  --screenshot out/frame.png --frame 0
 ```
+
+The full JSONL protocol, recording and replay are documented in
+[docs/commands.md](docs/commands.md).
 
 ### Launcher
 
-`scripts/run_gui.sh` wraps the AppImage (or a local build) with the default
-scene arguments, so the GUI can be started with a single command:
-
 ```bash
-# install once
-ln -sf "$PWD/scripts/run_gui.sh" ~/.local/bin/secgui
-
-secgui                                  # TLE base scene (all satellites)
-secgui --empty                          # empty workspace with Import panel
-secgui --minimal                        # minimal example scene
-secgui path/simulation.secsim           # exported single-file simulation
-secgui --scene path/scene.json          # explicit scene manifest
-secgui --import path/simulation.secsim  # open in the Import panel
-secgui --help                           # full usage
+secgui                              # cached TLE base scene
+secgui path/simulation.secsim       # exported simulation
+secgui --empty                      # empty workspace with Import panel
 ```
 
-To create a simulation file, run the core exporter once:
+Create the simulation files in the core repository:
 
 ```bash
-python3 tools/export_gui_scene.py --config data/configurations_AP_optimal.json \
-  --out ~/.cache/secgui/scenes/terrestrial
+python main.py --gui-export
 ```
 
-or run `python main.py --gui-export`, which leaves
-`result/.../gui_scene/simulation.secsim`. The GUI binary only reads the
-exported scene and never runs Python or searches for the core checkout.
+This writes `<result>/gui_scene/simulation.secsim` together with
+`manifest.json`, `frames/` and the optional `tasks.jsonl`, `loads.jsonl` and
+`traffic.jsonl`. The core README explains each file.
 
-For one-step export + launch use the core wrapper
-`SECMotionModel/tools/run_gui.sh --config ...` or `--run ...`; it calls the
-exporter and then this launcher with the resulting `.secsim`. The GUI launcher
-itself rejects those flags on purpose.
-
-With no arguments `secgui` opens the cached **TLE base scene**. If the cache is
-missing, the launcher prints the core `tools/export_base_scene.py` command to
-generate it once; the GUI itself never does. Override the location with
-`SECGUI_BASE_SCENE`.
-
-Inside the window, **Scenarios...** lists the TLE base scene and the exported
-simulations under `~/.cache/secgui/scenes` and `~/.cache/secgui/runs`. Each row
-has an **Open** button; **Refresh** rescans the cache and **Import...** opens
-the file browser.
-
-`secgui --empty` (or `secgui --import PATH`) uses the **Import scene** panel
-instead. The panel lists `.secsim` simulation files as well as scene manifests.
-A `.secsim` file is a single-file descriptor that points at an existing
-`manifest.json` and its optional `tasks`/`loads`/`traffic` files, so there is no
-directory to select. Both `.secsim` and manifests load directly.
-
-The GUI binary is independent of the core simulator: it never runs Python and
-never searches for a core checkout. Raw runs (`gui_run.json`) must be exported
-first with the core `tools/export_gui_scene.py`; the GUI then opens the
-resulting `.secsim`. Unsupported or future scene fields are ignored, and absent
-optional layers simply stay off.
+Open the GUI, choose **Scenarios... -> Import...** and select
+`simulation.secsim`. There is no folder to choose: the descriptor contains the
+paths of the scene files. You can also pass it directly:
 
 ```bash
-secgui result.secsim
-secgui --scene result.secsim
+secgui path/to/simulation.secsim
 ```
 
-The core exporters write `simulation.secsim` next to the exported manifest by
-default; `--bundle PATH` writes the descriptor elsewhere.
+The GUI is independent of the core at runtime: it never runs Python or searches
+for a core checkout. For one-step export + launch use the core
+`tools/run_gui.sh` wrapper; the GUI launcher rejects `--config`/`--run` on
+purpose.
 
-The core exporter maps `gui_run.json`, `gui_state.csv`, `gui_links.csv`,
-`tasks.jsonl` and `simulation_dataset.json` to the versioned scene format. The
-GUI treats missing sidecars as absent layers; see
-[docs/REPORT-live-traffic.md](docs/REPORT-live-traffic.md) for the v0.2
-telemetry report and evidence.
-
-The launcher prefers `SECGUI_BIN`, then the newest AppImage in `dist/`, then
-`build-gui/secmotion-gui`. It falls back to `APPIMAGE_EXTRACT_AND_RUN=1` when
-FUSE is unavailable.
+With no arguments `secgui` opens the cached TLE base scene. If it is missing,
+generate it once from the core with `tools/export_base_scene.py`; the GUI prints
+the exact command. **Scenarios...** lists cached exported scenes and
+**Import...** opens the file browser.
 
 Shortcuts: `Space` play/pause, `←`/`→` step, `1`–`5` camera mode,
 `G/I/D/O/K` layers, `L` layers panel, `T` telemetry, `Ctrl+K` command palette,
 `F12` screenshot, `R` reset, `Ctrl+Q` quit. Drag to orbit, two-finger trackpad
 scroll (or wheel) to zoom, `Shift` for fine zoom, `+`/`-` as keyboard zoom,
 click to select an entity.
-
-See [docs/commands.md](docs/commands.md) for the full JSONL protocol and the
-GUI mapping, and [examples/README.example.md](examples/README.example.md) for a
-guided example.
 
 ## Rendering
 
@@ -210,37 +163,12 @@ The default density is `0.6`. Set it from the command line with
 The current value is reported as `isl_density` in `state` and recorded by
 `--record-script`.
 
-## Relationship with the core repository
+## Relationship with the core
 
-The GUI is a git submodule of `SECMotionModel` at path `gui/`, but the binary
-has no runtime dependency on the simulator. The core owns the exporter:
-
-```bash
-cd ../SECMotionModel
-python tools/export_gui_scene.py \
-  --config data/configurations_AP_optimal.json \
-  --out ~/.cache/secgui/scenes/terrestrial
-```
-
-It writes a versioned scene plus `simulation.secsim`. The GUI opens only that
-file (and the files it references). Positions are exported in ECEF/ITRS, so the
-globe is earth-fixed and both the terminal and the observer stay at their
-geographic coordinates.
-
-For a simulation with a different internal model, emit the scene contract
-directly and package it with `tools/package_gui_scene.py`; no GUI change is
-needed as long as the frames are valid.
-
-## Agent communication
-
-Bug reports and requests between the core and the GUI are exchanged through
-GitHub issues, using the `gh-issues` skill available in both repositories:
-
-- core: `.opencode/skills/gh-issues/SKILL.md`
-- GUI: `.opencode/skills/gh-issues/SKILL.md`
-
-Titles use the `[from-core]` / `[from-gui]` prefixes and media evidence is
-attached as release/branch links.
+The GUI is a submodule but has no runtime dependency on the simulator. The core
+exporter writes `simulation.secsim`; the GUI reads that descriptor and the files
+it references. See the core README for `python main.py --gui-export` and the file
+layout. Positions are exported in ECEF/ITRS, so the globe is earth-fixed.
 
 ## License
 
